@@ -1,17 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { T } from "../theme.js";
-
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
-// Venstre navigation med kollapsible grupper og subtyper.
-// Props:
-//   cancer      - det aktive cancer-objekt (fra CANCERS array)
-//   activeSub   - id på den valgte subtype
-//   onSelect    - callback(subtypeId) når bruger vælger en subtype
 
 export function Sidebar({ cancer, activeSub, onSelect }) {
   const [expanded, setExpanded] = useState(
     Object.fromEntries(cancer.groups.map(g => [g.id, true]))
   );
+
+  // Nulstil expanded-tilstand når kræfttypen skifter
+  useEffect(() => {
+    setExpanded(Object.fromEntries(cancer.groups.map(g => [g.id, true])));
+  }, [cancer.id]);
 
   const toggleGroup = (id) =>
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
@@ -27,7 +25,6 @@ export function Sidebar({ cancer, activeSub, onSelect }) {
     }}>
       {cancer.groups.map(g => (
         <div key={g.id}>
-          {/* Gruppe-header */}
           <button
             onClick={() => toggleGroup(g.id)}
             style={{
@@ -50,7 +47,6 @@ export function Sidebar({ cancer, activeSub, onSelect }) {
             </span>
           </button>
 
-          {/* Subtyper */}
           {expanded[g.id] && g.subtypes.map(s => {
             const active = activeSub === s.id;
             return (
@@ -83,7 +79,6 @@ export function Sidebar({ cancer, activeSub, onSelect }) {
         </div>
       ))}
 
-      {/* Ansvarsfraskrivelse */}
       <div style={{
         margin: "16px 12px 10px",
         padding: "10px 12px",
