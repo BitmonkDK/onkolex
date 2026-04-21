@@ -79,8 +79,20 @@ const ABBR_REGEX = new RegExp(
 
 function AbbrTooltip({ term, definition }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef(null);
   const wrapRef = useRef(null);
   const isTouch = useRef(false);
+
+  const calcPos = () => {
+    if (!triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    setPos({
+      top: r.top + window.scrollY - 8,
+      left: r.left + r.width / 2 + window.scrollX,
+    });
+  };
+
   useEffect(() => {
     if (!open) return;
     const close = e => {
@@ -93,21 +105,25 @@ function AbbrTooltip({ term, definition }) {
       document.removeEventListener("touchstart", close);
     };
   }, [open]);
+
   return (
     <span ref={wrapRef} style={{ position: "relative", display: "inline" }}>
       <span
-        onMouseEnter={() => { if (!isTouch.current) setOpen(true); }}
+        ref={triggerRef}
+        onMouseEnter={() => { if (!isTouch.current) { calcPos(); setOpen(true); } }}
         onMouseLeave={() => { if (!isTouch.current) setOpen(false); }}
         onTouchStart={() => { isTouch.current = true; }}
-        onClick={() => setOpen(v => !v)}
+        onClick={() => { calcPos(); setOpen(v => !v); }}
         style={{ borderBottom: "1.5px dotted #5b8db8", color: "#5b8db8", cursor: "pointer", fontWeight: 700 }}
       >{term}</span>
       {open && (
         <span style={{
-          position: "absolute", bottom: "calc(100% + 7px)", left: "50%",
-          transform: "translateX(-50%)",
+          position: "fixed",
+          top: pos.top - 4,
+          left: pos.left,
+          transform: "translate(-50%, -100%)",
           background: "#2e2a4a", border: "1.5px solid #5b8db8", borderRadius: 10,
-          padding: "11px 14px", width: 260, zIndex: 9999,
+          padding: "11px 14px", width: 260, zIndex: 99999,
           boxShadow: "0 8px 32px rgba(46,42,74,0.5)", display: "block", pointerEvents: "none",
         }}>
           <span style={{ display: "block", fontSize: 12, fontWeight: 800, color: "#5b8db8", marginBottom: 5 }}>{term}</span>
@@ -367,243 +383,368 @@ const SUP = {
 
 // ─── KLINISK DYBDE PER SUBTYPE ────────────────────────────────────────────────
 const DEPTH = {
-  breast:[
-    { name:"Luminal A", criteria:"ER+ / PR+ høj / HER2− / Ki-67 < 14%", badge:"Bedst prognose", badgeColor:"#4a8c84",
-      biology:"Luminal A er den mindst aggressive subtype. Væksten drives primært af østrogensignalering via ERα. Metabolisk foretrækkes OXPHOS frem for aerob glykolyse. PIK3CA er muteret i ~45%.",
-      pathways:[{n:"ER/PR-signalering",l:"Meget høj"},{n:"PI3K/AKT/mTOR",l:"Moderat"},{n:"OXPHOS",l:"Høj"},{n:"Aerob glykolyse",l:"Lav"}],
+  melanoma:[
+    { name:"BRAF V600E-muteret", criteria:"Kutan melanom / BRAF V600E mutation (~40–45%) / metastatisk eller stadium III–IV", badge:"Targetbar — dabrafenib + trametinib", badgeColor:"#4a8c84",
+      biology:"BRAF V600E giver konstitutiv MAPK-aktivering der driver proliferation ukontrolleret. Kombineret BRAF+MEK-hæmning (dabrafenib+trametinib) giver ~70% responsrate. Resistens opstår næsten altid via RAS-mutation, MEK-amplifikation eller autopagi. Energistofskiftet er stærkt Warburg-præget.",
+      pathways:[{n:"BRAF V600E/MAPK",l:"Ekstremt høj"},{n:"RAS/MEK/ERK",l:"Ekstremt høj"},{n:"PI3K/AKT/mTOR",l:"Moderat-høj"},{n:"PD-L1",l:"Moderat-høj"},{n:"Aerob glykolyse",l:"Høj"},{n:"Autopagi",l:"Moderat-høj"}],
       biomarkers:[
-        {name:"Ki-67 (%)",note:"< 14% bekræfter Luminal A. Afgørende for at undgå kemoterapi",crit:true},
-        {name:"ER / PR (Allred score)",note:"Bekræfter HR+ status. Score ≥ 3 nødvendig for hormonbehandling",crit:true},
-        {name:"HER2 (IHC + FISH)",note:"Udelukker HER2+ subtype",crit:true},
-        {name:"Oncotype DX",note:"21-gen-test afgør recidivrisiko og kemobehov",crit:false},
+        {name:"BRAF V600E/K (NGS + ctDNA)",note:"Definerer behandling. V600E og V600K → dabrafenib+trametinib. ctDNA monitorerer resistensudvikling",crit:true},
+        {name:"PD-L1 (TPS/CPS)",note:"Forudsiger immunterapi-respons — men negativt udelukker ikke respons",crit:false},
+        {name:"TMB",note:"Høj TMB (soleksponeret melanom) = bedre immunterapi-respons",crit:false},
+        {name:"LDH",note:"Forhøjet LDH = dårlig prognose. Baseline obligatorisk ved alle stadier",crit:true},
+        {name:"PTEN (IHC/NGS)",note:"PTEN-tab = PI3K-hæmmer relevant og dårligere BRAF-hæmmer-respons",crit:false},
       ],
       offlabel:[
-        {name:"Metformin",ev:"Fase 2–3",note:"MA.32 RCT (n=3.649): forbedret sygdomsfri overlevelse. 500–2.000 mg/dag."},
-        {name:"Aspirin",ev:"Fase 1–2",note:"Observationsstudier: 20–30% reduceret recidivrisiko via COX-2-hæmning."},
-        {name:"Statin",ev:"Fase 1–2",note:"Epidemiologiske data lovende. Lipofil statin foretrækkes."},
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer BRAF/MEK-drevet aerob glykolyse og mTOR. Reducerer BRAF-hæmmer-resistens. Observationsdata: melanom-patienter på metformin lever længere."},
+        {name:"HCQ",ev:"Fase 1–2",note:"Autopagi er primær resistensmekanisme mod BRAF-hæmmere. HCQ genopretter dabrafenib-sensitivitet. Fase 1/2 igangværende."},
+        {name:"Aspirin",ev:"Fase 1–2",note:"COX-2-hæmning → reducerer PGE2 der aktiverer BRAF/MAPK og immunsupprimerer mikromiljøet. Synergistisk med immunterapi."},
+        {name:"Statin",ev:"Fase 1–2",note:"Mevalonat → reducerer RAS/MAPK og synergistisk med MEK-hæmmere. Proapoptotisk i BRAF-hæmmer-resistente celler."},
       ],
-      trials:"https://clinicaltrials.gov/search?cond=luminal+A+breast+cancer&type=Interventional&recrs=a" },
-    { name:"Luminal B", criteria:"ER+ / PR lav / HER2± / Ki-67 ≥ 20%", badge:"Intermediær prognose", badgeColor:"#b8904a",
-      biology:"Luminal B er mere aggressiv end Luminal A pga. høj proliferationshastighed (Ki-67 ≥ 20%). mTOR-signalvejen er typisk hyperaktiveret. CCND1 er hyppigt amplificeret.",
-      pathways:[{n:"ER-signalering",l:"Moderat-høj"},{n:"PI3K/AKT/mTOR",l:"Høj"},{n:"CDK4/6-cykliner",l:"Høj"},{n:"Aerob glykolyse",l:"Moderat"}],
+      trials:"https://clinicaltrials.gov/search?cond=BRAF+melanoma&type=Interventional&recrs=a" },
+    { name:"BRAF-wildtype / NRAS-muteret", criteria:"Kutan melanom / BRAF-wildtype / NRAS mutation Q61 (~20%) / NF1 mutation (~15%)", badge:"Immunterapi er hjørnestenen", badgeColor:"#b8904a",
+      biology:"BRAF-wildtype melanom mangler den klare targetbare mutation. NRAS-muteret melanom aktiverer RAS/MAPK og PI3K konstant men NRAS er undruggable direkte. Immunterapi (kombineret anti-PD-1 + anti-CTLA-4) er hjørnestenen med ~50–60% responsrate.",
+      pathways:[{n:"NRAS/RAS/MAPK",l:"Ekstremt høj"},{n:"PI3K/AKT/mTOR",l:"Høj"},{n:"PD-1/PD-L1",l:"Høj"},{n:"Aerob glykolyse",l:"Høj"}],
       biomarkers:[
-        {name:"Ki-67 (%)",note:"≥ 20% definerer Luminal B",crit:true},
-        {name:"HER2 (IHC + FISH)",note:"HER2+ Luminal B behandles fundamentalt anderledes",crit:true},
-        {name:"PIK3CA mutation",note:"Åbner for alpelisib ved metastatisk HR+/HER2−",crit:false},
-        {name:"ESR1 mutation (ctDNA)",note:"Resistensmarkør ved endokrin behandling",crit:false},
+        {name:"BRAF wildtype bekræftelse",note:"BRAF-negativ bekræfter at BRAF-hæmmere er irrelevante",crit:true},
+        {name:"NRAS mutation (NGS)",note:"NRAS+ → binimetinib (MEK-hæmmer) indiceret. Ekskluderer BRAF-hæmmere",crit:true},
+        {name:"PD-L1 + TMB",note:"Dobbelt høj = bedst immunterapi-respons",crit:false},
+        {name:"LDH",note:"Forhøjet LDH = dårlig prognose",crit:true},
       ],
       offlabel:[
-        {name:"Metformin",ev:"Fase 3",note:"MA.32 RCT — signifikant forbedret DFS hos postmenopausale."},
-        {name:"HCQ",ev:"Fase 1–2",note:"Autopagi-hæmning synergistisk med endokrin behandling ved resistens."},
-        {name:"Statin",ev:"Fase 1–2",note:"Kombinationsstudier med aromatasehæmmere igangværende."},
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer NRAS-drevet RAS/MAPK og mTOR. Synergistisk med MEK-hæmmere."},
+        {name:"Aspirin",ev:"Fase 1–2",note:"COX-2-hæmning synergistisk med pembrolizumab/nivolumab. Observationsdata: forbedret immunterapi-respons."},
+        {name:"Probiotika",ev:"Fase 1–2",note:"Mikrobiomet er afgørende for anti-PD-1-respons ved melanom. Bifidobacterium specifikt vigtig."},
       ],
-      trials:"https://clinicaltrials.gov/search?cond=luminal+B+breast+cancer&type=Interventional&recrs=a" },
-    { name:"TNBC — Basallignende", criteria:"ER− / PR− / HER2− / CK5/6+ og/eller EGFR+", badge:"Mest aggressiv", badgeColor:"#e06060",
-      biology:"Basallignende TNBC er den mest aggressive subtype. BRCA1-mutationer er hyppige (~25%). Energistofskiftet domineres af ekstrem aerob glykolyse og høj glutaminolyse. TP53 er muteret i ~80%.",
-      pathways:[{n:"Aerob glykolyse (Warburg)",l:"Ekstremt høj"},{n:"Glutaminolyse",l:"Høj"},{n:"PI3K/AKT/mTOR",l:"Høj"},{n:"Autopagi",l:"Høj"},{n:"WNT/β-catenin",l:"Moderat-høj"}],
+      trials:"https://clinicaltrials.gov/search?cond=melanoma&type=Interventional&recrs=a" },
+    { name:"Uvealt Melanom", criteria:"Melanom udgående fra uvea (koroid, corpus ciliare, iris) / GNAQ eller GNA11 mutation", badge:"GNAQ/GNA11 — sværest behandlelig", badgeColor:"#e06060",
+      biology:"Uvealt melanom er biologisk fundamentalt anderledes end kutant melanom. GNAQ/GNA11-mutationer aktiverer PKC og MAPK. Metastatisk uvealt melanom har ekstremt dårlig prognose (~6–12 mdr) og reagerer dårligt på immunterapi. Tebentafusp er første godkendte behandling specifikt for HLA-A*02:01+ patienter.",
+      pathways:[{n:"GNAQ/GNA11/PKC",l:"Ekstremt høj"},{n:"RAS/MAPK/ERK",l:"Høj"},{n:"YAP/Hippo",l:"Høj"},{n:"PI3K/AKT",l:"Moderat-høj"}],
       biomarkers:[
-        {name:"BRCA1/2 (germline + somatisk)",note:"~25% BRCA1-muteret → olaparib godkendt. VIGTIGSTE test ved TNBC-diagnose",crit:true},
-        {name:"PD-L1 (CPS score)",note:"CPS ≥ 10 → pembrolizumab indiceret (KEYNOTE-522)",crit:true},
-        {name:"TIL (%)",note:"TIL ≥ 30% = bedre prognose og immunterapi-respons",crit:false},
-        {name:"HRD-score",note:"Åbner for PARP-hæmmer selv uden BRCA-mutation",crit:false},
+        {name:"GNAQ / GNA11 mutation (NGS)",note:"Bekræfter diagnosen og udelukker kutant melanom",crit:true},
+        {name:"BAP1-tab (IHC/NGS)",note:"BAP1-tab = metastatisk risiko ~50% vs ~20% ved BAP1-intakt. Vigtigste prognostiske markør",crit:true},
+        {name:"HLA-A*02:01 typning",note:"Nødvendig for tebentafusp-indikation — kun HLA-A*02:01+ patienter kan behandles",crit:true},
+        {name:"SF3B1 mutation",note:"SF3B1+ = bedre prognose og sen metastasering",crit:false},
       ],
       offlabel:[
-        {name:"Metformin",ev:"Fase 2–3",note:"Signifikant forbedret pCR i neoadjuvant setting. Multiple studier."},
-        {name:"Ivermectin",ev:"Fase 1–2",note:"PAK1-hæmning → WNT ↓ og HIF-1α ↓. Fase 2 pilot med neoadjuvant kemo."},
-        {name:"HCQ",ev:"Fase 1–2",note:"Lysosomhæmning → blokerer autopagi synergistisk med kemoterapi."},
+        {name:"Metformin",ev:"Præklinisk",note:"AMPK → hæmmer GNAQ-drevet mTOR og YAP-aktivering. Præklinisk stærk evidens."},
+        {name:"Statin",ev:"Fase 1–2",note:"Mevalonat → reducerer GNAQ-downstream RAS/RHO. Observationsdata ved uvealt melanom."},
       ],
-      trials:"https://clinicaltrials.gov/search?cond=triple+negative+breast+cancer&type=Interventional&recrs=a" },
-    { name:"HER2-enriched", criteria:"HER2 amplificeret (IHC 3+ / FISH >2.0) / ER− / PR−", badge:"HER2+ targetbar", badgeColor:"#5b8db8",
-      biology:"HER2-enriched drives udelukkende af HER2-amplifikation. PI3K/AKT/mTOR og RAS/MAPK er kraftigt aktiverede. FASN er overudtrykt. TP53 er muteret i ~75%.",
-      pathways:[{n:"HER2/ErbB2",l:"Ekstremt høj"},{n:"PI3K/AKT/mTOR",l:"Høj"},{n:"RAS/MAPK",l:"Høj"},{n:"FASN",l:"Høj"}],
-      biomarkers:[
-        {name:"HER2 (IHC + FISH)",note:"Score 3+ = positiv. Score 2+ kræver FISH-bekræftelse",crit:true},
-        {name:"PIK3CA mutation",note:"Forudsiger reduceret trastuzumab-respons",crit:false},
-        {name:"PD-L1 (CPS)",note:"Relevant ved metastatisk HER2+",crit:false},
-      ],
-      offlabel:[
-        {name:"Statin",ev:"Fase 1–2",note:"Mevalonat-hæmning → reducerer HER2-membranlokalisering. Synergistisk med trastuzumab."},
-        {name:"HCQ",ev:"Fase 1–2",note:"Autopagi-hæmning synergistisk med trastuzumab."},
-        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → mTOR-hæmning downstream af HER2."},
-      ],
-      trials:"https://clinicaltrials.gov/search?cond=HER2+positive+breast+cancer&type=Interventional&recrs=a" },
+      trials:"https://clinicaltrials.gov/search?cond=uveal+melanoma&type=Interventional&recrs=a" },
   ],
-  lung:[
-    { name:"Adenokarcinom — EGFR-muteret", criteria:"Adenokarcinom / EGFR exon 19 del eller exon 21 L858R", badge:"Targetbar mutation", badgeColor:"#4a8c84",
-      biology:"EGFR-muteret adenokarcinom er den hyppigste drivermutation i vestlig NSCLC (~15%). EGFR aktiverer PI3K/AKT/mTOR og RAS/MAPK konstant. Osimertinib er standardbehandling.",
-      pathways:[{n:"EGFR/ErbB1",l:"Ekstremt høj"},{n:"PI3K/AKT/mTOR",l:"Høj"},{n:"RAS/MAPK",l:"Høj"},{n:"OXPHOS",l:"Moderat-høj"}],
+
+  bladder:[
+    { name:"Muskelinvasiv blærekræft (MIBC)", criteria:"Urotelkarcinom / muskelinvasion (T2+) / MIBC", badge:"PD-L1 + FGFR3 målretning", badgeColor:"#7b6fa0",
+      biology:"MIBC kræver radikal cystektomi eller kemoradiation. Neoadjuvant cisplatinbaseret kemo forbedrer OS markant. FGFR3-mutation (~15%) åbner for erdafitinib. Immunterapi er godkendt ved metastatisk cisplatinineligibel sygdom. Energistofskiftet er stærkt Warburg-præget.",
+      pathways:[{n:"FGFR3 (mutation/fusion)",l:"Høj"},{n:"PI3K/AKT/mTOR",l:"Høj"},{n:"PD-L1",l:"Moderat-høj"},{n:"Aerob glykolyse",l:"Høj"},{n:"ERBB2 (HER2)",l:"Moderat"}],
       biomarkers:[
-        {name:"EGFR mutation (tumor + ctDNA)",note:"Afgørende for EGFR-hæmmer-valg. ctDNA til resistensmonitorering",crit:true},
-        {name:"T790M mutation (ctDNA)",note:"Erhvervet resistens mod 1.–2. gen. → skift til osimertinib",crit:true},
-        {name:"ALK / ROS1 (NGS)",note:"Udelukker overlappende drivermutationer",crit:true},
+        {name:"FGFR3 mutation/fusion (NGS)",note:"~15% — erdafitinib godkendt ved metastatisk sygdom. Obligatorisk NGS",crit:true},
+        {name:"PD-L1 (CPS ≥ 10)",note:"Indikerer pembrolizumab ved cisplatinineligibel metastatisk sygdom",crit:true},
+        {name:"MSI-H / TMB-høj",note:"Åbner for pembrolizumab tumor-agnostisk",crit:false},
+        {name:"ERBB2 amplifikation",note:"~10% — trastuzumab-kombinationsstudier igangværende",crit:false},
       ],
       offlabel:[
-        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → mTOR-hæmning downstream af EGFR. Observationsdata: forbedret OS på osimertinib + metformin."},
-        {name:"HCQ",ev:"Fase 1–2",note:"Autopagi er primær resistensmekanisme mod EGFR-hæmmere. Genopretter osimertinib-sensitivitet."},
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer mTOR og Warburg. Reducerer PD-L1-ekspression — synergi med pembrolizumab. Observationsdata: blærekræft-patienter på metformin lever længere."},
+        {name:"Aspirin",ev:"Fase 1–2",note:"COX-2-hæmning → reducerer PGE2-drevet immunsuppression og neoangiogenese. Synergi med immunterapi."},
+        {name:"Statin",ev:"Fase 1–2",note:"Mevalonat-hæmning → reducerer RAS og PI3K-aktivering. Synergistisk med cisplatinkemo."},
       ],
-      trials:"https://clinicaltrials.gov/search?cond=EGFR+non-small+cell+lung&type=Interventional&recrs=a" },
-    { name:"Planocellulært karcinom", criteria:"Planocellulært NSCLC / EGFR-ALK-KRAS negativ / hyppigt hos rygere", badge:"PD-L1 målretning vigtig", badgeColor:"#5b8db8",
-      biology:"Planocellulært NSCLC udgør ~25–30% og ses næsten udelukkende hos rygere. Immunterapi er hjørnestenen ved høj PD-L1. Energistofskiftet er stærkt glykolytisk.",
-      pathways:[{n:"FGFR1/MAPK",l:"Moderat-høj"},{n:"PI3K/AKT/mTOR",l:"Moderat-høj"},{n:"PD-1/PD-L1",l:"Høj"},{n:"Aerob glykolyse",l:"Høj"}],
+      trials:"https://clinicaltrials.gov/search?cond=muscle+invasive+bladder+cancer&type=Interventional&recrs=a" },
+    { name:"Ikke-muskelinvasiv blærekræft (NMIBC) — høj risiko", criteria:"Urotelkarcinom / overfladisk / CIS og/eller T1 høj grad / BCG-behandlet", badge:"BCG-resistens er central udfordring", badgeColor:"#b8904a",
+      biology:"NMIBC høj-risiko inklusiv carcinoma in situ (CIS) behandles med BCG-instillationer der aktiverer lokalt immunforsvar i blæren. BCG-resistens opstår hos ~30–40% og kræver ny strategi. Pembrolizumab er godkendt ved BCG-refraktær NMIBC.",
+      pathways:[{n:"PD-1/PD-L1",l:"Høj"},{n:"PI3K/AKT/mTOR",l:"Moderat-høj"},{n:"FGFR3",l:"Moderat"},{n:"Aerob glykolyse",l:"Moderat-høj"}],
       biomarkers:[
-        {name:"PD-L1 (TPS %)",note:"TPS ≥ 50% = pembrolizumab monoterapi. Vigtigste biomarkør",crit:true},
-        {name:"NGS full panel",note:"Udelukker sjældne targetbare mutationer",crit:true},
+        {name:"PD-L1 (CPS)",note:"Forudsiger pembrolizumab-respons ved BCG-refraktær CIS",crit:true},
+        {name:"FGFR3 mutation",note:"FGFR3-muteret NMIBC har generelt bedre prognose og lavere progressionsrisiko",crit:false},
+        {name:"TERT-promoter mutation",note:"Hyppig i NMIBC — prognostisk markør",crit:false},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → reducerer Warburg og mTOR. Biologisk rationale ved BCG-resistens."},
+        {name:"Aspirin",ev:"Fase 1–2",note:"COX-2-hæmning synergistisk med BCG-immunaktivering i blæren."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=non-muscle+invasive+bladder+cancer&type=Interventional&recrs=a" },
+  ],
+
+  lymphoma:[
+    { name:"Klassisk Hodgkin Lymfom", criteria:"CD30+ Reed-Sternberg celler / nodulær sklerose (hyppigst) / PD-L1 overudtrykt", badge:"Kurativt ~85–90%", badgeColor:"#4a8c84",
+      biology:"Klassisk HL er karakteriseret ved Reed-Sternberg-celler der udgør kun 1–2% af tumormassen omgivet af massivt inflammatorisk mikromiljø. CD30 og PD-L1 er konstitutivt overudtrykt. JAK/STAT-signalering er central. ~85–90% er kurerbare med ABVD eller BrECADD.",
+      pathways:[{n:"JAK/STAT",l:"Ekstremt høj"},{n:"NF-κB",l:"Høj"},{n:"PD-L1/CD30",l:"Ekstremt høj"},{n:"PI3K/AKT",l:"Moderat-høj"},{n:"Aerob glykolyse",l:"Moderat"}],
+      biomarkers:[
+        {name:"CD30 (IHC)",note:"Positivt i næsten alle cHL — indikerer brentuximab vedotin ved recidiv",crit:true},
+        {name:"PD-L1 (IHC)",note:"Overudtrykt ved RS-celler — pembrolizumab/nivolumab indiceret ved recidiv",crit:true},
+        {name:"PET-CT (Deauville score)",note:"Interim PET afgørende for behandlingsintensivering. Deauville 4–5 = eskalering",crit:true},
+        {name:"EBV-status (EBER ISH)",note:"EBV+ cHL = anderledes mikromiljø og prognose",crit:false},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer JAK/STAT og mTOR. Reducerer PD-L1-ekspression på RS-celler — synergi med pembrolizumab."},
+        {name:"Aspirin",ev:"Fase 1–2",note:"COX-2-hæmning → reducerer PGE2 i det inflammatoriske mikromiljø der opretholder RS-celler."},
+        {name:"Statin",ev:"Præklinisk",note:"Mevalonat-hæmning → reducerer NF-κB og RAS/MAPK. Proapoptotisk i RS-cellelinjer."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=Hodgkin+lymphoma&type=Interventional&recrs=a" },
+    { name:"DLBCL (Diffust Storcellet B-celle)", criteria:"DLBCL / CD20+ / aggressivt Non-Hodgkin lymfom / GCB eller ABC subtype", badge:"Kurativt ~60% med R-CHOP", badgeColor:"#5b8db8",
+      biology:"DLBCL er det hyppigste aggressive lymfom. GCB-subtypen er BCL-2 rearrangeret og PI3K-drevet. ABC-subtypen er NF-κB og BCR/BTK-afhængig med dårligere prognose. Double-hit (MYC + BCL-2) er ekstremt aggressivt. R-CHOP er 1. linjestandardbehandling.",
+      pathways:[{n:"BCR/BTK (ABC-subtype)",l:"Høj"},{n:"PI3K/AKT (GCB-subtype)",l:"Høj"},{n:"NF-κB (ABC-subtype)",l:"Høj"},{n:"MYC-amplifikation",l:"Ekstremt høj"},{n:"BCL-2 anti-apoptose",l:"Høj"},{n:"Aerob glykolyse",l:"Høj"}],
+      biomarkers:[
+        {name:"COO subtype (GCB vs ABC)",note:"Afgørende for prognose og ny behandling. ABC = ibrutinib-kombination benefit i studier",crit:true},
+        {name:"MYC + BCL-2 + BCL-6 FISH",note:"Double/triple-hit = ekstremt aggressivt. Kræver R-DA-EPOCH frem for R-CHOP",crit:true},
+        {name:"IPI score",note:"International Prognostic Index — afgørende for risikostratificering",crit:true},
+        {name:"TP53 mutation",note:"TP53+ = dårlig prognose og kortere PFS med R-CHOP",crit:false},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer MYC-drevet aerob glykolyse og mTOR. Observationsdata: DLBCL-patienter på metformin har bedre respons på R-CHOP."},
+        {name:"Statin",ev:"Fase 1–2",note:"Mevalonat → reducerer RAS/RHO og NF-κB. Proapoptotisk via BCL-2-reduktion. Synergistisk med rituximab."},
+        {name:"HCQ",ev:"Fase 1–2",note:"Autopagi-hæmning — double-hit DLBCL er stærkt autopagi-afhængige. Fase 1/2 igangværende."},
+        {name:"Disulfiram + kobber",ev:"Præklinisk",note:"Hæmmer NF-κB og proteasomet — direkte angrebspunkt på ABC-subtypens NF-κB-afhængiged."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=diffuse+large+B+cell+lymphoma&type=Interventional&recrs=a" },
+    { name:"Follikulært Lymfom (grad 1–2)", criteria:"Follikulært lymfom / CD20+ / BCL-2 t(14;18) / grad 1–2 (lavgradig)", badge:"Indolent — kronisk sygdom", badgeColor:"#7b6fa0",
+      biology:"Follikulært lymfom er det hyppigste indolente lymfom. t(14;18) giver BCL-2-overekspression og blokerer apoptose. Sygdommen er typisk kronisk tilbagevendende men sjældent kurativ. Transformation til DLBCL sker i ~3%/år.",
+      pathways:[{n:"BCL-2 overekspression",l:"Ekstremt høj"},{n:"PI3K/AKT",l:"Høj"},{n:"BCR-signalering",l:"Moderat-høj"},{n:"NF-κB",l:"Moderat"},{n:"Aerob glykolyse",l:"Lav-moderat"}],
+      biomarkers:[
+        {name:"BCL-2 t(14;18) (FISH)",note:"Bekræfter diagnose. Negativ ved grad 3B — behandles som DLBCL",crit:true},
+        {name:"FLIPI score",note:"Follikulær Lymfom International Prognostisk Indeks — styrer behandlingsbehov",crit:true},
+        {name:"EZH2 mutation",note:"Åbner for tazemetostat (EZH2-hæmmer) ved recidiv",crit:false},
+        {name:"Transformationsbiopi",note:"Hastigt voksende knude = transformationsbiopi obligatorisk (MYC, BCL-2)",crit:true},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → reducerer BCL-2-afhængiged og mTOR. Synergistisk med rituximab."},
+        {name:"Statin",ev:"Fase 1–2",note:"Mevalonat → reducerer BCL-2-afhængiged og NF-κB. Synergistisk med rituximab."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=follicular+lymphoma&type=Interventional&recrs=a" },
+  ],
+
+  leukemia:[
+    { name:"AML — FLT3-muteret", criteria:"AML / FLT3-ITD eller FLT3-TKD mutation / ~30% af AML", badge:"Targetbar — midostaurin/gilteritinib", badgeColor:"#b8904a",
+      biology:"FLT3-muteret AML har historisk haft dårlig prognose men FLT3-hæmmere (midostaurin, gilteritinib) har forbedret overlevelsen markant. FLT3-ITD giver konstitutiv kinaseaktivering der driver PI3K/AKT, MAPK og STAT5 massivt. Energistofskiftet er ekstremt glykolytisk.",
+      pathways:[{n:"FLT3/STAT5",l:"Ekstremt høj"},{n:"PI3K/AKT/mTOR",l:"Høj"},{n:"RAS/MAPK",l:"Høj"},{n:"Aerob glykolyse",l:"Ekstremt høj"},{n:"Autopagi",l:"Moderat-høj"}],
+      biomarkers:[
+        {name:"FLT3-ITD / FLT3-TKD (NGS)",note:"Definerer subtypen. FLT3-ITD allele ratio prognostisk. Afgørende for midostaurin/gilteritinib",crit:true},
+        {name:"NPM1 mutation",note:"Ko-mutation med FLT3 — NPM1+/FLT3-ITD lav = god prognose",crit:true},
+        {name:"IDH1/2 mutation",note:"Åbner for ivosidenib/enasidenib som tillæg ved IDH+ AML",crit:false},
+        {name:"MRD (NGS/flow cytometri)",note:"Minimal residual disease — afgørende for behandlingsbeslutning",crit:true},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer mTOR og aerob glykolyse. Synergi med midostaurin. Observationsdata: AML-patienter på metformin har bedre respons."},
+        {name:"HCQ",ev:"Fase 1–2",note:"Autopagi-hæmning — blokerer primær resistensmekanisme mod FLT3-hæmmere. Fase 1/2 igangværende."},
+        {name:"Statin",ev:"Fase 1–2",note:"Mevalonat → reducerer RAS-membrananchoring downstream af FLT3. Proapoptotisk i AML-blaster."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=FLT3+acute+myeloid+leukemia&type=Interventional&recrs=a" },
+    { name:"AML — IDH1/2-muteret", criteria:"AML / IDH1 R132 eller IDH2 R140/R172 mutation / ~20% af AML", badge:"IDH-hæmmer indiceret", badgeColor:"#4a8c84",
+      biology:"IDH1/2-muteret AML producerer 2-HG der blokerer myeloid differentiering og låser celler i blaststadie. Ivosidenib (IDH1) og enasidenib (IDH2) er godkendte og kan inducere differentiering. Differentieringssyndrom er vigtig bivirkning.",
+      pathways:[{n:"IDH1/2 → 2-HG",l:"Ekstremt høj"},{n:"Epigenetisk lås",l:"Høj"},{n:"PI3K/AKT/mTOR",l:"Moderat-høj"},{n:"Aerob glykolyse",l:"Høj"},{n:"Glutaminolyse",l:"Høj"}],
+      biomarkers:[
+        {name:"IDH1 / IDH2 mutation (NGS)",note:"Definerer subtypen. IDH1 → ivosidenib, IDH2 → enasidenib. Begge godkendt ved recidiverende AML",crit:true},
+        {name:"2-HG (serum/urin)",note:"Monitorerer IDH-hæmmer-respons. Fald i 2-HG bekræfter biologisk aktivitet",crit:false},
+        {name:"MRD",note:"Minimal residual disease — afgørende for behandlingsbeslutning",crit:true},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer mTOR og glutaminolyse. Reducerer 2-HG-produktion indirekte. Synergistisk med ivosidenib."},
+        {name:"HCQ",ev:"Præklinisk",note:"Autopagi-hæmning — IDH-muterede AML-celler er stærkt autopagi-afhængige under differentieringsbehandling."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=IDH+acute+myeloid+leukemia&type=Interventional&recrs=a" },
+    { name:"CML — BCR-ABL positiv", criteria:"CML / BCR-ABL1 fusionsgen (Philadelphia-kromosom) / t(9;22)", badge:"Philadelphia-kromosom — TKI kurativt potentiale", badgeColor:"#4a8c84",
+      biology:"CML er en af de mest behandlingssuccesrige kræftformer — TKI (imatinib, dasatinib, nilotinib) giver >85% langtidsoverlevelse. BCR-ABL1-fusionsproteinet aktiverer konstant ABL-kinaseaktivitet der driver PI3K/AKT, RAS/MAPK og STAT5.",
+      pathways:[{n:"BCR-ABL1/ABL-kinase",l:"Ekstremt høj"},{n:"PI3K/AKT/mTOR",l:"Høj"},{n:"RAS/MAPK",l:"Høj"},{n:"STAT5",l:"Høj"},{n:"Aerob glykolyse",l:"Høj"}],
+      biomarkers:[
+        {name:"BCR-ABL1 (FISH + PCR)",note:"Diagnostisk og monitoreringsmarkør. BCR-ABL kvantificering (IS-skala) afgør behandlingsstatus og seponeringsstrategi",crit:true},
+        {name:"ABL1 T315I mutation",note:"Resistens mod alle 1.–2. gen. TKI. Kræver ponatinib eller asciminib",crit:true},
+        {name:"Sokal/ELTS risikoescore",note:"Afgørende for initial TKI-valg",crit:false},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer mTOR downstream af BCR-ABL. Reducerer CML-stammeceller som overlever imatinib."},
+        {name:"HCQ",ev:"Fase 1–2",note:"CML-stammeceller er stærkt autopagi-afhængige og overlever TKI via autopagi. ATLAs fase 2: HCQ + imatinib forbedret dyb molekylær remission."},
+        {name:"Grøn te (EGCG)",ev:"Fase 1–2",note:"EGCG hæmmer BCR-ABL direkte og reducerer leukæmi-stamceller. Klinisk fase 2-studie: EGCG + imatinib forbedret respons."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=chronic+myeloid+leukemia&type=Interventional&recrs=a" },
+    { name:"CLL — IGHV-umuteret / TP53-muteret", criteria:"CLL / IGHV-umuteret og/eller del(17p)/TP53-muteret / kræver behandling", badge:"Høj risiko — BTK-hæmmer", badgeColor:"#e06060",
+      biology:"CLL er den hyppigste leukæmi i Vesten. BCR-signalering er den primære overlevelsesdrivkraft. Ibrutinib og acalabrutinib (BTK-hæmmere) har revolutioneret behandlingen. IGHV-umuteret og TP53-muteret/del(17p) er de vigtigste høj-risiko markører.",
+      pathways:[{n:"BCR/BTK-signalering",l:"Ekstremt høj"},{n:"PI3K/AKT",l:"Høj"},{n:"BCL-2 anti-apoptose",l:"Ekstremt høj"},{n:"NF-κB",l:"Høj"},{n:"Aerob glykolyse",l:"Moderat"}],
+      biomarkers:[
+        {name:"IGHV mutationsstatus",note:"Umuteret = dårlig prognose og kortere tid til behandling. Afgørende for strategi-valg",crit:true},
+        {name:"del(17p) / TP53 mutation",note:"del(17p)/TP53+ = BTK-hæmmer eller venetoclax obligatorisk. Kemo-immunterapi er kontraindiceret",crit:true},
+        {name:"BTK C481S mutation (ctDNA)",note:"Erhvervet ibrutinib-resistens — kræver skift til acalabrutinib eller venetoclax",crit:false},
+        {name:"ZAP-70 / CD38",note:"Surrogatmarkører for IGHV-status. Positive = aggressivt forløb",crit:false},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer mTOR og BCL-2-drevet anti-apoptose. Observationsdata: CLL-patienter på metformin har lavere behandlingsbehov."},
+        {name:"Statin",ev:"Fase 1–2",note:"Lipofil statin → reducerer RAS/RHO og NF-κB. Proapoptotisk i CLL-celler."},
+        {name:"Curcumin",ev:"Fase 1–2",note:"NF-κB og BCL-2-downregulering i CLL-cellelinjer. Klinisk fase 2-data ved CLL."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=chronic+lymphocytic+leukemia&type=Interventional&recrs=a" },
+  ],
+
+  thyroid:[
+    { name:"Papillært karcinom (PTC) — BRAF V600E", criteria:"Papillær histologi / BRAF V600E (~60%) / >95% kurabel", badge:"Bedst prognose — >95% 10-årsoverlevelse", badgeColor:"#4a8c84",
+      biology:"PTC er den hyppigste skjoldbruskkirtelkræft og har ekstremt god prognose med standard behandling. BRAF V600E driver MAPK-signalering og reducerer RAI-uptake (radioaktivt jod). TERT-promoter ko-mutation = aggressivt forløb.",
+      pathways:[{n:"BRAF V600E/MAPK",l:"Høj"},{n:"RET/PTC-fusion",l:"Moderat-høj"},{n:"PI3K/AKT",l:"Moderat"},{n:"Aerob glykolyse",l:"Moderat"}],
+      biomarkers:[
+        {name:"BRAF V600E (NGS + IHC)",note:"Forudsiger RAI-refraktæritet. Positiv → dabrafenib+trametinib ved metastatisk RAI-refraktær sygdom",crit:true},
+        {name:"TERT-promoter mutation",note:"Ko-mutation med BRAF = ekstremt aggressivt forløb. Intensiveret opfølgning",crit:false},
+        {name:"RET/PTC-fusion (NGS/FISH)",note:"Åbner for RET-hæmmere (selpercatinib, pralsetinib) ved RAI-refraktær sygdom",crit:false},
+        {name:"Thyroglobulin (Tg) + TgAb",note:"Primær monitoreringsmarkør post-thyroidektomi. Stigende Tg = recidiv",crit:true},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer BRAF-drevet MAPK og mTOR. Observationsdata: lavere recidivrisiko hos PTC-patienter på metformin."},
+        {name:"Statin",ev:"Præklinisk",note:"Mevalonat → reducerer BRAF-downstream RAS/MAPK. Anti-invasivt i PTC-cellelinjer."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=papillary+thyroid+cancer&type=Interventional&recrs=a" },
+    { name:"Anaplastisk Skjoldbruskkirtelkræft (ATC)", criteria:"Anaplastisk (udifferentieret) / ekstremt aggressivt / BRAF V600E ~45%", badge:"Median OS < 6 mdr — BRAF AKUT kritisk", badgeColor:"#e06060",
+      biology:"ATC er en af de dødeligste kræftformer med median OS på 3–6 måneder. BRAF V600E er til stede i ~45% og er et kritisk handlingspunkt — dabrafenib + trametinib giver ~69% responsrate. HURTIG BRAF-testning er en medicinsk nødsituation.",
+      pathways:[{n:"BRAF V600E/MAPK",l:"Ekstremt høj"},{n:"PI3K/AKT/mTOR",l:"Høj"},{n:"WNT/β-catenin",l:"Høj"},{n:"Aerob glykolyse",l:"Ekstremt høj"},{n:"Autopagi",l:"Høj"}],
+      biomarkers:[
+        {name:"BRAF V600E (AKUT NGS)",note:"⚠️ MEDICINSK NØDSITUATION — BRAF V600E+ → øjeblikkelig opstart af dabrafenib+trametinib. Svar kræves inden 48 timer",crit:true},
+        {name:"PD-L1 (CPS)",note:"Immunterapi-mulighed ved BRAF-negativ ATC",crit:false},
+        {name:"MSI-H",note:"Sjælden men åbner for pembrolizumab tumor-agnostisk",crit:false},
+      ],
+      offlabel:[
+        {name:"HCQ",ev:"Fase 1–2",note:"Autopagi-hæmning synergistisk med dabrafenib+trametinib mod BRAF+ ATC. Fase 2 rekrutterer."},
+        {name:"Metformin",ev:"Præklinisk",note:"AMPK → hæmmer mTOR og Warburg. Præklinisk synergi med BRAF-hæmmere."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=anaplastic+thyroid+cancer&type=Interventional&recrs=a" },
+  ],
+
+  kidney:[
+    { name:"Klarcelle RCC (ccRCC)", criteria:"Klarcellet nyrekarcinom / VHL-mutation eller methylering (~75%) / meget vaskulariseret", badge:"VHL-muteret — mest aggressiv RCC", badgeColor:"#5b8db8",
+      biology:"ccRCC er den hyppigste nyrekræftsubtype. VHL-tab aktiverer HIF-1α/HIF-2α konstant der driver massiv VEGF-produktion og angiogenese. Belzutifan (HIF-2α-hæmmer) er et gennembrud. Kombineret immunterapi + anti-VEGFR er nuværende 1. linjestandardbehandling.",
+      pathways:[{n:"VHL-tab → HIF-1α/HIF-2α",l:"Ekstremt høj"},{n:"VEGF/VEGFR/angiogenese",l:"Ekstremt høj"},{n:"mTOR/mTORC1",l:"Høj"},{n:"PI3K/AKT",l:"Moderat-høj"},{n:"Aerob glykolyse",l:"Høj"}],
+      biomarkers:[
+        {name:"VHL mutation/methylering (NGS)",note:"Bekræfter ccRCC-diagnose og åbner for belzutifan ved VHL disease",crit:true},
+        {name:"BAP1-tab (IHC/NGS)",note:"BAP1-tab = dårligst prognose. Kræver intensiveret behandling",crit:false},
+        {name:"PBRM1 vs BAP1",note:"PBRM1-muteret = bedre immunterapi-respons. BAP1-muteret = bedre VEGFR-hæmmer respons",crit:false},
+        {name:"PD-L1 (CPS/TPS)",note:"Forudsiger immunterapi-respons i kombinationsregimer",crit:false},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer mTOR og HIF-1α-aktivering downstream af VHL-tab. Observationsdata: ccRCC-patienter på metformin lever længere."},
+        {name:"Statin",ev:"Fase 1–2",note:"Mevalonat → reducerer RAS/RHO og VEGF-produktion. Retrospektive data: bedre overlevelse ved RCC på statin."},
+        {name:"Aspirin",ev:"Fase 1–2",note:"COX-2-hæmning → reducerer PGE2 der stabiliserer HIF-1α. Anti-angiogenetisk."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=clear+cell+renal+carcinoma&type=Interventional&recrs=a" },
+    { name:"Metastatisk RCC", criteria:"RCC med fjernmetastaser / behandles som kronisk sygdom", badge:"Immunterapi + TKI standard", badgeColor:"#b8904a",
+      biology:"Metastatisk RCC behandles nu med kombinationer af immunterapi og anti-VEGFR TKI. Nivolumab + ipilimumab eller pembrolizumab + axitinib er 1. linjestandardbehandlinger. Sygdommen er sjældent kurabel men kan kontrolleres i årevis.",
+      pathways:[{n:"VEGF/VEGFR/angiogenese",l:"Ekstremt høj"},{n:"PD-1/PD-L1",l:"Høj"},{n:"mTOR",l:"Høj"},{n:"HIF-1α",l:"Høj"}],
+      biomarkers:[
+        {name:"IMDC risikoescore",note:"International Metastatic RCC Database Consortium — afgørende for behandlingsstrategi",crit:true},
+        {name:"PD-L1 (TPS/CPS)",note:"Høj PD-L1 = benefit af nivolumab monoterapi i 2. linje",crit:false},
+        {name:"BAP1 / PBRM1 mutation",note:"Styrer valg mellem immunterapi vs VEGFR-hæmmer",crit:false},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer mTOR og HIF-1α. Synergistisk med sunitinib og pembrolizumab."},
+        {name:"Statin",ev:"Fase 1–2",note:"Anti-VEGF effekt og mTOR-hæmning. Synergistisk med sunitinib."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=metastatic+renal+cell+carcinoma&type=Interventional&recrs=a" },
+  ],
+
+  uterine:[
+    { name:"Endometrioidt karcinom — Type 1", criteria:"Endometrioidt karcinom / grad 1–2 / hormonfølsomt / god prognose", badge:"Hormonfølsomt — god prognose", badgeColor:"#4a8c84",
+      biology:"Type 1 endometriekarcinom er østrogendrevet og har god prognose ved tidlig diagnose. PIK3CA-mutation er hyppig (~40%). Energistofskiftet er domineret af aerob glykolyse og lipidsyntetase. Metformin har særlig stærk biologisk rationale her da insulinresistens og overvægt er primære risikofaktorer.",
+      pathways:[{n:"PI3K/AKT/mTOR",l:"Høj"},{n:"ER-signalering",l:"Høj"},{n:"WNT/β-catenin",l:"Moderat-høj"},{n:"FASN/lipidsyntese",l:"Moderat-høj"},{n:"Aerob glykolyse",l:"Moderat"}],
+      biomarkers:[
+        {name:"MMR / MSI-H (IHC + PCR)",note:"~25–30% MSI-H → pembrolizumab indiceret. Vigtigste test",crit:true},
+        {name:"PIK3CA mutation",note:"Åbner for mTOR/PI3K-hæmmere. Hyppig ko-mutation",crit:false},
+        {name:"ER / PR (IHC)",note:"Positiv → hormonbehandling (megestrolacetat, tamoxifen) som vedligeholdelse mulighed",crit:false},
+        {name:"POLE exonuklease mutation",note:"POLE-ultramuteret = ekstremt god prognose. Kemoterapi kan undlades",crit:true},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 2–3",note:"Stærkest rationale af alle kræfttyper — insulin og IGF-1 driver direkte ER-signalering. Multiple fase 2 studier: reducerer tumorproliferation markant ved neoadjuvant administration."},
+        {name:"Aspirin",ev:"Fase 1–2",note:"COX-2-hæmning → reducerer østrogen-biosyntese via aromatase. Observationsdata: lavere recidivrisiko."},
+        {name:"Statin",ev:"Fase 1–2",note:"Mevalonat → reducerer PI3K/AKT og ER-biosyntese fra kolesterol."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=endometrial+cancer+type+1&type=Interventional&recrs=a" },
+    { name:"Serøst / Klarcelle — Type 2", criteria:"Serøst eller klarcelle karcinom / grad 3 / aggressivt / TP53 mutation hyppig", badge:"Aggressivt — dårligere prognose", badgeColor:"#e06060",
+      biology:"Type 2 endometriekarcinom ligner biologisk HGSOC-æggestokkræft med TP53-mutation som næsten universel faktor. HER2-amplifikation ses i ~20% af serøs type. POLE-mutation sjælden. Behandles med platinbaseret kemo + pembrolizumab ved MSI-H.",
+      pathways:[{n:"TP53 mutation",l:"Ekstremt høj"},{n:"PI3K/AKT/mTOR",l:"Høj"},{n:"ERBB2/HER2",l:"Moderat-høj"},{n:"Aerob glykolyse",l:"Høj"}],
+      biomarkers:[
+        {name:"HER2 (IHC + FISH)",note:"~20% HER2+ serøs type → trastuzumab tilføjes kemo. Afgørende test",crit:true},
+        {name:"MMR / MSI-H",note:"Sjælden ved type 2 men åbner for pembrolizumab",crit:true},
+        {name:"TP53 mutation",note:"Næsten universel — bekræfter type 2 diagnosen",crit:false},
+        {name:"POLE mutation",note:"Sjælden ved type 2 men ekstremt god prognose hvis tilstede",crit:false},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer mTOR og HER2-downstream PI3K. Biologisk rationale."},
+        {name:"HCQ",ev:"Præklinisk",note:"Autopagi-hæmning synergistisk med platinkemo ved serøs type."},
+        {name:"Statin",ev:"Fase 1–2",note:"Mevalonat → reducerer HER2-membranlokalisering og RAS/MAPK."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=uterine+serous+carcinoma&type=Interventional&recrs=a" },
+  ],
+
+  liver:[
+    { name:"Hepatocellulært Karcinom (HCC) — Avanceret", criteria:"HCC / Barcelona Clinic Liver Cancer (BCLC) C / Child-Pugh A-B", badge:"Atezolizumab + bevacizumab standard", badgeColor:"#b8904a",
+      biology:"HCC opstår i ~80% på baggrund af skrumpelever og er en af de hyppigste kræftdødårsager globalt. VHL-tab aktiverer HIF-1α massivt og driver VEGF-produktion. Atezolizumab + bevacizumab er nuværende 1. linjestandard og forbedrer OS markant vs. sorafenib.",
+      pathways:[{n:"VEGF/VEGFR/angiogenese",l:"Ekstremt høj"},{n:"WNT/β-catenin",l:"Høj"},{n:"PI3K/AKT/mTOR",l:"Moderat-høj"},{n:"TP53",l:"Høj"},{n:"Aerob glykolyse",l:"Høj"}],
+      biomarkers:[
+        {name:"AFP (alfaføtoprotein)",note:"Primær HCC-markør. AFP > 400 ng/mL ved typisk billede er diagnostisk. Monitoreringsmarkør",crit:true},
+        {name:"Child-Pugh score",note:"Leverfunktionsklassificering — afgørende for behandlingsvalg og dosis",crit:true},
+        {name:"BCLC stadium",note:"Primært staging-system for HCC. Styrer behandlingsstrategi",crit:true},
+        {name:"CTNNB1 mutation",note:"WNT+ HCC = anti-PD-1 lav responsrate. Påvirker immunterapi-beslutning",crit:false},
+        {name:"HBV/HCV status",note:"Aktiv HBV kræver antiviral behandling — HBV-reaktivering risiko under immunterapi",crit:true},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer mTOR og WNT/β-catenin. Reducerer leverinflammation og fibrose der driver HCC-progression. Meta-analyse: signifikant bedre overlevelse. Særlig relevant ved NASH/diabetes-associeret HCC."},
+        {name:"Statin",ev:"Fase 1–2",note:"Meta-analyse: lavere HCC-incidens og bedre overlevelse hos statin-brugere med kronisk leversygdom. Stærkest statin-evidens i HCC-prævention."},
+        {name:"Aspirin",ev:"Fase 1–2",note:"COX-2-hæmning → reducerer PGE2 der driver HCC-vækst. Observationsstudier: aspirin reducerer HCC-incidens hos cirrosepatienter."},
+        {name:"Propranolol",ev:"Fase 2",note:"Betablokker der reducerer portal hypertension og VEGF. Synergistisk med TACE. Kliniske data lovende ved avanceret HCC."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=hepatocellular+carcinoma&type=Interventional&recrs=a" },
+    { name:"Intrahepatisk Kolangiokarcinom (iCCA)", criteria:"Kolangiokarcinom / intrahepatisk lokalisering / FGFR2 og IDH1/2 targetbar", badge:"FGFR2 og IDH1/2 targetbar", badgeColor:"#4a8c84",
+      biology:"iCCA er karakteriseret ved FGFR2-fusioner (~15%) og IDH1/2-mutationer (~20%) som de vigtigste targetbare alterationer. Pemigatinib (FGFR2-hæmmer) og ivosidenib (IDH1-hæmmer) er godkendte. Desmoplatisk stroma analogt med PDAC. Standard 1. linje: gemcitabin + cisplatin + durvalumab.",
+      pathways:[{n:"FGFR2/MAPK (fusion)",l:"Høj"},{n:"IDH1/2 → 2-HG",l:"Høj"},{n:"PI3K/AKT/mTOR",l:"Moderat-høj"},{n:"RAS/MAPK",l:"Moderat"},{n:"Aerob glykolyse",l:"Høj"}],
+      biomarkers:[
+        {name:"FGFR2-fusion (NGS/FISH)",note:"~15% — pemigatinib/infigratinib godkendt. Kræver NGS",crit:true},
+        {name:"IDH1/2 mutation (NGS)",note:"~20% IDH1/IDH2 — ivosidenib godkendt ved IDH1+ recidiv",crit:true},
+        {name:"MSI-H / TMB-høj",note:"Sjælden men åbner for pembrolizumab tumor-agnostisk",crit:false},
+        {name:"NTRK-fusion",note:"Sjælden men targetbar med larotrectinib",crit:false},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer mTOR og 2-HG-produktion ved IDH-mutation. Reducerer Warburg."},
+        {name:"Statin",ev:"Fase 1–2",note:"Mevalonat → reducerer RAS/MAPK og stroma-produktion. Synergistisk med gemcitabin."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=intrahepatic+cholangiocarcinoma&type=Interventional&recrs=a" },
+  ],
+
+  gastric:[
+    { name:"HER2-positiv Mavekræft", criteria:"Gastrisk adenokarcinom / HER2 IHC 3+ eller IHC 2+/FISH+ / ~15–20%", badge:"HER2+ — trastuzumab standard", badgeColor:"#4a8c84",
+      biology:"HER2-positiv mavekræft udgør ~15–20% og har fundamentalt anderledes biologi end HER2-negativ. Trastuzumab tilføjet kemo forbedrer OS markant (ToGA-studiet). PI3K/AKT/mTOR er kraftigt aktiveret downstream af HER2. Energistofskiftet er stærkt Warburg-præget.",
+      pathways:[{n:"HER2/ErbB2",l:"Ekstremt høj"},{n:"PI3K/AKT/mTOR",l:"Høj"},{n:"RAS/MAPK",l:"Høj"},{n:"PD-L1",l:"Moderat"},{n:"Aerob glykolyse",l:"Høj"}],
+      biomarkers:[
+        {name:"HER2 (IHC + FISH)",note:"Score 3+ = positiv. Score 2+ kræver FISH-bekræftelse. Afgørende for trastuzumab-indikation",crit:true},
+        {name:"PD-L1 (CPS ≥ 5)",note:"CPS ≥ 5 → nivolumab tilføjes kemo + trastuzumab (CheckMate 811)",crit:true},
+        {name:"MMR / MSI-H",note:"~5% af gastrisk kræft — pembrolizumab indiceret",crit:true},
+        {name:"ERBB2 amplifikation (ctDNA)",note:"Monitorerer HER2-status under behandling — HER2-tab er resistensmekanisme",crit:false},
+      ],
+      offlabel:[
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer HER2-downstream mTOR og PI3K. Synergistisk med trastuzumab."},
+        {name:"Statin",ev:"Fase 1–2",note:"Mevalonat → reducerer HER2-membranlokalisering og RAS/MAPK."},
+        {name:"Cimetidin",ev:"Fase 2",note:"Anti-HSPG og NK-celle-aktivering. Randomiseret studie ved mavekræft: forbedret 10-årsoverlevelse."},
+      ],
+      trials:"https://clinicaltrials.gov/search?cond=HER2+gastric+cancer&type=Interventional&recrs=a" },
+    { name:"MSI-H / dMMR Mavekræft", criteria:"Gastrisk adenokarcinom / MSI-H eller dMMR / ~5–10%", badge:"Immunterapi-responsiv", badgeColor:"#4a8c84",
+      biology:"MSI-H mavekræft udgør ~5–10% og har massiv mutationsbyrde der giver mange neoantigener. Pembrolizumab er ekstremt effektivt — responsrate ~40–60% ved metastatisk MSI-H mavekræft. EBV-positiv mavekræft overlapper biologisk med MSI-H.",
+      pathways:[{n:"MMR-mangelfuld",l:"Ekstremt høj"},{n:"PD-1/PD-L1",l:"Høj"},{n:"PI3K/AKT",l:"Moderat-høj"},{n:"WNT/β-catenin",l:"Moderat"}],
+      biomarkers:[
+        {name:"MMR (IHC) / MSI (PCR eller NGS)",note:"Bekræfter MSI-H status. Kræves for pembrolizumab-indikation",crit:true},
+        {name:"EBV-status (EBER ISH)",note:"EBV+ mavekræft ligner MSI-H biologisk og reagerer godt på immunterapi",crit:false},
+        {name:"PD-L1 (CPS)",note:"CPS ≥ 5 = pembrolizumab 1. linje standard",crit:true},
         {name:"TMB",note:"Høj TMB understøtter immunterapi-respons",crit:false},
       ],
       offlabel:[
-        {name:"Metformin",ev:"Fase 1–2",note:"Reducerer PD-L1-ekspression. Synergi med pembrolizumab."},
-        {name:"Aspirin",ev:"Fase 1–2",note:"COX-2-hæmning synergistisk med immunterapi."},
-        {name:"Mebendazol",ev:"Præklinisk",note:"Tubulin-hæmmer og anti-VEGF. Case reports med respons."},
-      ],
-      trials:"https://clinicaltrials.gov/search?cond=squamous+cell+lung+cancer&type=Interventional&recrs=a" },
-    { name:"SCLC — Udbredt stadium", criteria:"Småcellet lungekræft / metastaser uden for ipsilateral hemithorax", badge:"Dårligst prognose", badgeColor:"#e06060",
-      biology:"SCLC er den mest aggressive lungetumor med neuroendokrin oprindelse. RB1- og TP53-tab er næsten universelle (~90%). MYC-amplifikation driver massiv proliferation.",
-      pathways:[{n:"MYC-amplifikation",l:"Ekstremt høj"},{n:"Aerob glykolyse",l:"Ekstremt høj"},{n:"BCL-2 anti-apoptose",l:"Høj"},{n:"Autopagi",l:"Moderat-høj"}],
-      biomarkers:[
-        {name:"PD-L1 (SP142)",note:"PD-L1+ → atezolizumab + kemo (IMpower133)",crit:true},
-        {name:"BCL-2 (IHC)",note:"Overekspression → venetoclax-studier",crit:false},
-      ],
-      offlabel:[
-        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer MYC-drevet glykolyse. Observationsdata: forbedret OS."},
-        {name:"HCQ",ev:"Fase 1–2",note:"Lysosomhæmning synergistisk med platinkemo."},
-        {name:"Disulfiram + kobber",ev:"Præklinisk",note:"Hæmmer NF-κB og ALDH. Stærk præklinisk evidens i SCLC-stammeceller."},
-      ],
-      trials:"https://clinicaltrials.gov/search?cond=small+cell+lung+cancer&type=Interventional&recrs=a" },
-  ],
-  colorectal:[
-    { name:"MSI-H / dMMR", criteria:"Kolonkarcinom / Mismatch Repair-deficient / MSI-H", badge:"Immunterapi-responsiv", badgeColor:"#4a8c84",
-      biology:"MSI-H kolorektal kræft udgør ~15% og har massiv mutationsbyrde. Dette giver mange neoantigener og gør MSI-H til den bedst immunterapi-responderende subtype. Pembrolizumab er 1. linjestandardbehandling.",
-      pathways:[{n:"MMR-mangelfuld",l:"Ekstremt høj"},{n:"PD-1/PD-L1",l:"Høj"},{n:"WNT/β-catenin",l:"Høj"}],
-      biomarkers:[
-        {name:"MMR (IHC: MLH1/MSH2/MSH6/PMS2)",note:"Bekræfter dMMR-status. Tab = immunterapi-indikation",crit:true},
-        {name:"MSI (PCR eller NGS)",note:"Bekræfter MSI-H. Kræves for pembrolizumab-godkendelse",crit:true},
-        {name:"Lynch syndrom screening",note:"MLH1-methylering udelukker Lynch. Positiv IHC kræver kimcellelinje-test",crit:true},
-      ],
-      offlabel:[
-        {name:"Aspirin",ev:"Fase 3",note:"CAPP2 RCT ved Lynch: 60% recidivreduktion. Stærkest aspirin-evidens i onkologi."},
+        {name:"Aspirin",ev:"Fase 1–2",note:"COX-2-hæmning → reducerer PGE2-drevet immunsuppression. Synergi med pembrolizumab."},
         {name:"Metformin",ev:"Fase 1–2",note:"Reducerer PD-L1-ekspression og MDSC — synergi med pembrolizumab."},
+        {name:"Probiotika",ev:"Fase 1–2",note:"Mikrobiomet er afgørende for immunterapi-respons. Akkermansia muciniphila korrelerer med bedre respons."},
       ],
-      trials:"https://clinicaltrials.gov/search?cond=MSI+colorectal+cancer&type=Interventional&recrs=a" },
-    { name:"KRAS/NRAS-muteret MSS", criteria:"Kolonkarcinom / MSS / KRAS eller NRAS mutation", badge:"Anti-EGFR ineffektiv", badgeColor:"#e06060",
-      biology:"KRAS/NRAS-muteret MSS CRC er den hyppigste subtype (~40%). Mutationerne giver konstitutiv RAS/MAPK-aktivering og gør anti-EGFR-behandling virkningsløs. Immunmikromiljøet er typisk koldt.",
-      pathways:[{n:"KRAS/NRAS/RAS",l:"Ekstremt høj"},{n:"RAS/MAPK/ERK",l:"Ekstremt høj"},{n:"WNT/β-catenin",l:"Høj"},{n:"Aerob glykolyse",l:"Høj"}],
+      trials:"https://clinicaltrials.gov/search?cond=MSI+gastric+cancer&type=Interventional&recrs=a" },
+    { name:"Diffus type / Signetringscelle", criteria:"Gastrisk adenokarcinom / diffus histologi / signetringsceller / Laurén diffus type", badge:"Aggressiv — tidlig spredning", badgeColor:"#e06060",
+      biology:"Diffus mavekræft er biologisk fundamentalt anderledes end intestinal type. E-cadherin-tab (CDH1-mutation) er karakteristisk og driver invasivitet og peritoneal spredning. Energistofskiftet er ekstremt Warburg-præget. Arvelig diffus mavekræft (HDGC) skyldes CDH1-kimcellelinje-mutation.",
+      pathways:[{n:"CDH1-tab/E-cadherin",l:"Ekstremt høj"},{n:"RHO/ROCK invasionsvejen",l:"Høj"},{n:"PI3K/AKT/mTOR",l:"Moderat-høj"},{n:"Aerob glykolyse",l:"Høj"}],
       biomarkers:[
-        {name:"KRAS/NRAS extended RAS (exon 2/3/4)",note:"KRAS/NRAS mutation = anti-EGFR virkningsløst. KRITISK at teste",crit:true},
-        {name:"MSI/dMMR",note:"MSS bekræftes — udelukker immunterapi som monoterapi",crit:true},
-        {name:"KRAS G12C specifikt",note:"Åbner for sotorasib/adagrasib ved metastatisk sygdom",crit:false},
+        {name:"CDH1 germline mutation",note:"Arvelig diffus mavekræft (HDGC) — familietest og profylaktisk gastrektomi ved bærere",crit:true},
+        {name:"HER2 (IHC + FISH)",note:"Sjælden ved diffus type (~5%) men skal testes",crit:true},
+        {name:"MMR / MSI-H",note:"Sjælden ved diffus type men åbner for pembrolizumab",crit:false},
+        {name:"FGFR2 amplifikation",note:"~5–10% ved diffus type — åbner for FGFR-hæmmere i studier",crit:false},
       ],
       offlabel:[
-        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer RAS/MAPK og Warburg."},
-        {name:"Aspirin",ev:"Fase 3",note:"ADD-ASPIRIN RCT igangværende. ~30% recidivreduktion."},
-        {name:"HCQ",ev:"Fase 1–2",note:"Autopagi-hæmning synergistisk med FOLFOX. Fase 2 igangværende."},
+        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer mTOR og Warburg. Biologisk rationale ved diffus type."},
+        {name:"Statin",ev:"Fase 1–2",note:"Mevalonat → reducerer RHO/ROCK-invasionsvejen der er central ved diffus type."},
+        {name:"Cimetidin",ev:"Fase 2",note:"Anti-adhesion via HSPG-hæmning — særlig relevant ved diffus types invasive karakter."},
       ],
-      trials:"https://clinicaltrials.gov/search?cond=KRAS+colorectal+cancer&type=Interventional&recrs=a" },
-  ],
-  prostate:[
-    { name:"Metastatisk hormon-sensitiv (mHSPC)", criteria:"Fjernmetastaser / testosteron-sensitiv / ADT effektiv", badge:"Kombinations-ADT standard", badgeColor:"#b8904a",
-      biology:"mHSPC responderer på androgendeprivation men ADT-monoterapi er utilstrækkeligt. AR-signalering er primær driver men FASN driver androgen-biosyntese fra kolesterol in situ.",
-      pathways:[{n:"AR-signalering",l:"Ekstremt høj"},{n:"FASN/lipidsyntese",l:"Høj"},{n:"PI3K/AKT/mTOR",l:"Moderat-høj"}],
-      biomarkers:[
-        {name:"BRCA1/2 + HRR-panel",note:"~15% HRR-muteret → olaparib ved progression til mCRPC",crit:true},
-        {name:"PSA kinetik (PSADT)",note:"PSA-doblingstid < 6 mdr = aggressivt forløb",crit:true},
-        {name:"AR-V7 (blod)",note:"Splicingvariant der giver ligand-uafhængig AR-aktivering",crit:false},
-      ],
-      offlabel:[
-        {name:"Metformin",ev:"Fase 1–2",note:"Randomiseret fase 2: metformin + ADT forbedrer PSA-respons og tid til kastrations-resistens."},
-        {name:"Statin",ev:"Fase 1–2",note:"Reducerer FASN-drevet androgen-de-novo-syntese. Retrospektive data: signifikant forbedret OS."},
-        {name:"Vitamin D3",ev:"Fase 1–2",note:"ADT medfører D3-mangel og øget frakturrisiko. Anbefales til ALLE på ADT."},
-      ],
-      trials:"https://clinicaltrials.gov/search?cond=hormone+sensitive+metastatic+prostate&type=Interventional&recrs=a" },
-    { name:"Metastatisk CRPC", criteria:"Kastreret testosteron < 50 ng/dL / PSA-progression", badge:"AR-resistent — PARP-hæmmer vigtig", badgeColor:"#e06060",
-      biology:"mCRPC opstår når prostatakræften vokser til trods for kastreret testosteron. Mekanismer: AR-amplifikation, AR-V7 splicingvariant og intratumoral androgensyntese. BRCA1/2-mutationer (~15%) åbner for PARP-hæmmere.",
-      pathways:[{n:"AR-amplifikation/AR-V7",l:"Ekstremt høj"},{n:"FASN/de novo androgen",l:"Ekstremt høj"},{n:"PI3K/AKT",l:"Høj"}],
-      biomarkers:[
-        {name:"AR-V7 (blod)",note:"AR-V7+ = enzalutamid/abirateron sjældent effektivt. Skift til taxan-kemo",crit:true},
-        {name:"BRCA1/2 + HRR-panel",note:"~15% BRCA2-muteret → olaparib/rucaparib godkendt",crit:true},
-        {name:"PTEN-tab",note:"Åbner for AKT-hæmmer (ipatasertib) studier",crit:false},
-      ],
-      offlabel:[
-        {name:"Metformin",ev:"Fase 1–2",note:"Randomiseret fase 2: metformin + enzalutamid forbedret PFS."},
-        {name:"HCQ",ev:"Fase 1–2",note:"Autopagi er kritisk resistensmekanisme mod enzalutamid."},
-        {name:"Itraconazol",ev:"Fase 1–2",note:"Hedgehog-hæmning og anti-VEGFR. Fase 2: PSA-respons og PFS-forbedring."},
-      ],
-      trials:"https://clinicaltrials.gov/search?cond=metastatic+castration+resistant+prostate&type=Interventional&recrs=a" },
-  ],
-  brain:[
-    { name:"Glioblastom — IDH-wildtype", criteria:"Grad 4 astrocytom / IDH-wildtype / TERT-promoter mutation", badge:"GBM — dårligst prognose", badgeColor:"#e06060",
-      biology:"IDH-wildtype GBM er den mest aggressive primære hjernetumor med median overlevelse på 12–15 måneder. Blod-hjerne-barrieren begrænser drastisk hvilke lægemidler der kan nå tumoren. MGMT-methylering er afgørende for temozolomid-respons.",
-      pathways:[{n:"EGFR/EGFRvIII",l:"Ekstremt høj"},{n:"PI3K/AKT/mTOR",l:"Høj"},{n:"Aerob glykolyse",l:"Ekstremt høj"},{n:"HIF-1α/hypoksi",l:"Høj"}],
-      biomarkers:[
-        {name:"MGMT-promoter methylering",note:"Methyleret (~45%) = bedre temozolomid-respons og signifikant bedre prognose",crit:true},
-        {name:"IDH1/2 mutation",note:"IDH-wildtype bekræfter GBM-diagnosen (WHO 2021)",crit:true},
-        {name:"EGFR amplifikation",note:"Target for nye antistoffer og vaccines i studier",crit:false},
-      ],
-      offlabel:[
-        {name:"Metformin",ev:"Fase 1–2",note:"Passerer blod-hjerne-barrieren. MAGE-studiet: metformin + TMZ + stråling igangværende."},
-        {name:"Chloroquin",ev:"Fase 1–2",note:"Passerer blod-hjerne-barrieren bedre end HCQ. Fase 2: chloroquin + Stupp-protokol."},
-        {name:"Mebendazol",ev:"Fase 1–2",note:"Passerer blod-hjerne-barrieren. Fase 1/2 ved recidiverende GBM — lovende data."},
-        {name:"Disulfiram + kobber",ev:"Fase 1–2",note:"Passerer blod-hjerne-barrieren. Fase 2: progressionsstabilisering ved recidiv."},
-      ],
-      trials:"https://clinicaltrials.gov/search?cond=glioblastoma&type=Interventional&recrs=a" },
-    { name:"IDH-muteret astrocytom (grad 2–4)", criteria:"IDH1 R132H eller IDH2 R172K mutation / bedre prognose end IDH-wildtype", badge:"Bedre prognose — vorasidenib", badgeColor:"#b8904a",
-      biology:"IDH-muteret tumor producerer 2-HG der driver epigenetisk reprogrammering. Median OS er 20–30 måneder ved grad 4 — markant bedre end IDH-wildtype. Vorasidenib (IDH-hæmmer) er nu godkendt.",
-      pathways:[{n:"IDH1/2 → 2-HG",l:"Ekstremt høj"},{n:"Epigenetisk lås",l:"Høj"},{n:"PI3K/AKT/mTOR",l:"Moderat-høj"}],
-      biomarkers:[
-        {name:"IDH1/2 mutation (IHC + NGS)",note:"Bekræfter IDH-muteret status — fundamentalt anderledes prognose og behandling",crit:true},
-        {name:"MGMT-promoter methylering",note:"Methyleret = bedre temozolomid-respons",crit:true},
-        {name:"CDKN2A/B homozygot tab",note:"Opklassificerer til grad 4 (WHO 2021)",crit:true},
-      ],
-      offlabel:[
-        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer mTOR og 2-HG-induceret glykolytisk omprogrammering."},
-        {name:"Mebendazol",ev:"Fase 1–2",note:"Tubulin-hæmmer og anti-VEGF. Passerer blod-hjerne-barrieren."},
-      ],
-      trials:"https://clinicaltrials.gov/search?cond=IDH+mutant+glioma&type=Interventional&recrs=a" },
-  ],
-  pancreatic:[
-    { name:"PDAC — KRAS-muteret", criteria:"Duktalt adenokarcinom / KRAS mutation (~95%) / BRCA wildtype", badge:"Autopagi-afhængig", badgeColor:"#b8904a",
-      biology:"PDAC er en af de mest behandlingsresistente kræftformer. Det dysmoplatiske stroma udgør op til 90% af tumorvolumen. PDAC er den mest autopagi-afhængige solide tumor — HCQ har biologisk stærkt rationale.",
-      pathways:[{n:"KRAS/RAS/MAPK",l:"Ekstremt høj"},{n:"Autopagi",l:"Ekstremt høj"},{n:"PI3K/AKT/mTOR",l:"Høj"},{n:"Stroma/desmoplasi",l:"Ekstremt høj"}],
-      biomarkers:[
-        {name:"BRCA1/2 + HRR-panel",note:"~8% BRCA-muteret → olaparib godkendt (POLO-studiet). VIGTIGSTE test",crit:true},
-        {name:"MSI-H / dMMR",note:"~1–2% af PDAC — åbner for pembrolizumab tumor-agnostisk",crit:true},
-        {name:"CA 19-9",note:"Tumormarkør til monitorering",crit:false},
-      ],
-      offlabel:[
-        {name:"Metformin",ev:"Fase 1–2",note:"Meta-analyse: PDAC-patienter på metformin lever markant længere."},
-        {name:"HCQ",ev:"Fase 1–2",note:"PDAC er den mest autopagi-afhængige tumor. Fase 1/2: HCQ + gemcitabin — klinisk benefit ~30%."},
-        {name:"Statin",ev:"Fase 1–2",note:"Mevalonat → reducerer KRAS-membrananchoring og stroma."},
-        {name:"Ivermectin",ev:"Præklinisk",note:"PAK1-hæmning → reducerer KRAS-downstream og makropinocytose."},
-      ],
-      trials:"https://clinicaltrials.gov/search?cond=pancreatic+ductal+adenocarcinoma&type=Interventional&recrs=a" },
-    { name:"PDAC — BRCA-muteret", criteria:"Duktalt adenokarcinom / BRCA1 eller BRCA2 mutation (~8%)", badge:"PARP-hæmmer indiceret", badgeColor:"#4a8c84",
-      biology:"BRCA-muteret PDAC har HRD der giver ekstrem sensitivitet over for platinbaseret kemoterapi og PARP-hæmmere. Olaparib som vedligeholdelsesbehandling er godkendt (POLO-studiet).",
-      pathways:[{n:"HRD/BRCA-mangelfuld",l:"Ekstremt høj"},{n:"KRAS/RAS/MAPK",l:"Høj"},{n:"Autopagi",l:"Høj"}],
-      biomarkers:[
-        {name:"BRCA1/2 (germline + somatisk)",note:"Definerer subtypen og olaparib-indikationen. Germline = information til familien",crit:true},
-        {name:"HRD-score",note:"Positiv HRD uden BRCA = potentiel PARP-hæmmer-kandidat",crit:false},
-      ],
-      offlabel:[
-        {name:"Metformin",ev:"Fase 1–2",note:"Synergi med olaparib via AMPK-BRCA2-interaktion."},
-        {name:"HCQ",ev:"Fase 1–2",note:"Autopagi-hæmning synergistisk med olaparib."},
-      ],
-      trials:"https://clinicaltrials.gov/search?cond=BRCA+pancreatic+cancer&type=Interventional&recrs=a" },
-  ],
-  ovarian:[
-    { name:"Højgradig serøs (HGSOC)", criteria:"Serøs histologi / højgradig / TP53 mutation næsten universel", badge:"HRD-test afgørende", badgeColor:"#7b6fa0",
-      biology:"HGSOC udgør ~70% af epitelial æggestokkræft. HRD er til stede hos ~50% og åbner for PARP-hæmmere. VEGF-drevet angiogenese er massiv.",
-      pathways:[{n:"HRD/BRCA-mangelfuld",l:"Høj"},{n:"PI3K/AKT/mTOR",l:"Høj"},{n:"FASN/lipidsyntese",l:"Høj"},{n:"VEGF/angiogenese",l:"Høj"}],
-      biomarkers:[
-        {name:"BRCA1/2 (germline + somatisk)",note:"~25% muteret → olaparib/niraparib godkendt. VIGTIGSTE test",crit:true},
-        {name:"HRD-score (Myriad MyChoice)",note:"HRD+ uden BRCA (~25% ekstra) → PARP-hæmmer-respons. ~50% total HRD+ i HGSOC",crit:true},
-        {name:"CA-125",note:"Primær monitoreringsmarkør",crit:true},
-        {name:"CCND1 amplifikation",note:"Associeret med PARP-hæmmer-resistens",crit:false},
-      ],
-      offlabel:[
-        {name:"Metformin",ev:"Fase 1–2",note:"AMPK → hæmmer FASN og mTOR. Synergistisk med PARP-hæmmere."},
-        {name:"HCQ",ev:"Fase 1–2",note:"Fase 1/2: HCQ + carboplatin — responsrate ~25% ved platinresistent sygdom."},
-        {name:"Statin",ev:"Fase 1–2",note:"Meta-analyse: signifikant bedre OS hos statin-brugere med ovarialkræft."},
-      ],
-      trials:"https://clinicaltrials.gov/search?cond=high+grade+serous+ovarian&type=Interventional&recrs=a" },
+      trials:"https://clinicaltrials.gov/search?cond=diffuse+gastric+cancer&type=Interventional&recrs=a" },
   ],
 };
 
@@ -638,28 +779,28 @@ const CANCER_DATA = [
    meds:[MED.metformin,MED.statiner,MED.itraconazol,MED.aspirin,MED.ivermectin,MED.mebendazol,MED.fenbendazol,MED.propranolol,MED.disulfiram,MED.niclosamid,MED.cimetidin,MED.ldn,MED.doxycyclin,MED.artesunate],
    sups:[SUP.lycopin,SUP.granataeble,SUP.egcg,SUP.vitamind,SUP.selen,SUP.curcumin,SUP.artemisinin,SUP.quercetin,SUP.mcp,SUP.berberine,SUP.melatonin,SUP.boswellia,SUP.resveratrol,SUP.omega3,SUP.sulforafan]},
 
-  {id:"melanoma",dk_key:null,name:"Hudkræft (Melanom)",nameEn:"Melanoma",icd10:"C43",icon:"🌑",dk:"~2.200/år",fy:"St.I: 98%, St.IV: 25%",organ:"Hud",
+  {id:"melanoma",dk_key:"melanoma",name:"Hudkræft (Melanom)",nameEn:"Melanoma",icd10:"C43",icon:"🌑",dk:"~2.200/år",fy:"St.I: 98%, St.IV: 25%",organ:"Hud",
    desc:"Melanom er den farligste form for hudkræft. Tidlig opdagelse er altafgørende. Immunterapi har revolutioneret behandlingen de seneste 10 år. BRAF-mutation (i ca. 50%) åbner for meget effektiv målrettet behandling.",
    sub:["BRAF V600E (ca. 50%) — mutation der muliggør effektiv kombinations-behandling","NRAS-muteret (ca. 20%) — immunterapi er primært valg","Wild-type — hverken BRAF eller NRAS mutation","Uveal melanom — opstår i øjet, anderledes biologi"],
    tx:"Lokaliseret melanom: Kirurgisk fjernelse med sikkerhedsmargin. Fremskreden melanom: Immunterapi er hjørnestenen — pembrolizumab eller nivolumab, eller kombinationen ipilimumab plus nivolumab. BRAF V600E-positiv: BRAF/MEK-hæmmere (dabrafenib plus trametinib).",
    meds:[MED.metformin,MED.propranolol,MED.ivermectin,MED.mebendazol,MED.fenbendazol,MED.aspirin,MED.hydroxychloroquin,MED.disulfiram,MED.cimetidin,MED.doxycyclin,MED.niclosamid,MED.artesunate],
    sups:[SUP.vitamind,SUP.curcumin,SUP.melatonin,SUP.resveratrol,SUP.artemisinin,SUP.egcg,SUP.berberine,SUP.quercetin,SUP.ala,SUP.sulforafan,SUP.omega3,SUP.cbd]},
 
-  {id:"bladder",dk_key:null,name:"Blærekræft",nameEn:"Bladder Cancer",icd10:"C67",icon:"🫧",dk:"~2.600/år",fy:"Overfladisk >80%, MIBC ~50%",organ:"Urinblære",
+  {id:"bladder",dk_key:"bladder",name:"Blærekræft",nameEn:"Bladder Cancer",icd10:"C67",icon:"🫧",dk:"~2.600/år",fy:"Overfladisk >80%, MIBC ~50%",organ:"Urinblære",
    desc:"Blærekræft opstår i blærens slimhinde og er tæt forbundet med rygning. Blod i urinen er det klassiske første symptom. Kræftens dybde ind i blærevæggen er afgørende for behandlingen.",
    sub:["NMIBC Lav-risiko — overfladisk, lav sandsynlighed for tilbagefald","NMIBC Høj-risiko med CIS — carcinoma in situ, aggressiv flat form","MIBC — kræften vokser ind i muskelvæggen","Metastatisk urotelkarcinom — spredt til andre organer"],
    tx:"NMIBC: Skopisk fjernelse (TUR-B) efterfulgt af BCG-instillationer direkte i blæren. MIBC: Radikal cystektomi eller blærebevarende stråling plus kemoterapi. Metastatisk: Kemoterapi (gemcitabin + cisplatin), immunterapi (atezolizumab, pembrolizumab).",
    meds:[MED.metformin,MED.statiner,MED.aspirin,MED.ivermectin,MED.mebendazol,MED.fenbendazol,MED.cimetidin,MED.disulfiram,MED.doxycyclin,MED.propranolol,MED.niclosamid,MED.artesunate],
    sups:[SUP.egcg,SUP.vitamind,SUP.curcumin,SUP.artemisinin,SUP.sulforafan,SUP.berberine,SUP.melatonin,SUP.quercetin,SUP.omega3]},
 
-  {id:"lymphoma",dk_key:null,name:"Lymfom",nameEn:"Lymphoma",icd10:"C81-C85",icon:"🟣",dk:"~2.000/år",fy:"Hodgkin 90%, DLBCL 65%",organ:"Lymfesystem",
+  {id:"lymphoma",dk_key:"lymphoma",name:"Lymfom",nameEn:"Lymphoma",icd10:"C81-C85",icon:"🟣",dk:"~2.000/år",fy:"Hodgkin 90%, DLBCL 65%",organ:"Lymfesystem",
    desc:"Lymfom er kræft i lymfesystemet. Det opdeles i Hodgkin og non-Hodgkin lymfom. Hævede lymfeknuder, træthed, nattesvede og uforklaret vægttab er klassiske symptomer.",
    sub:["Hodgkin lymfom — typisk yngre patienter, helbredes i ca. 90%","DLBCL — diffust storcellet B-celle lymfom, hyppigst non-Hodgkin","Follikulært lymfom — langsomt voksende, god prognose","Mantle-celle lymfom — aggressiv, sjælden"],
    tx:"Hodgkin: ABVD kemoterapi (4–6 kure) med eller uden strålebehandling. DLBCL: R-CHOP protokol (rituximab + kemoterapi, 6 kure). Follikulær: Watch and wait ved asymptomatisk sygdom. CAR-T cellebehandling og stamcelletransplantation ved tilbagefald.",
    meds:[MED.metformin,MED.hydroxychloroquin,MED.statiner,MED.ivermectin,MED.mebendazol,MED.fenbendazol,MED.doxycyclin,MED.disulfiram,MED.cimetidin,MED.niclosamid,MED.artesunate],
    sups:[SUP.curcumin,SUP.vitamind,SUP.melatonin,SUP.artemisinin,SUP.boswellia,SUP.egcg,SUP.psk,SUP.berberine,SUP.resveratrol,SUP.quercetin,SUP.omega3]},
 
-  {id:"leukemia",dk_key:null,name:"Leukæmi",nameEn:"Leukemia",icd10:"C91-C95",icon:"🩸",dk:"~1.400/år",fy:"CML >90%, CLL 85%, AML 30%",organ:"Blod/Knoglemarv",
+  {id:"leukemia",dk_key:"leukemia",name:"Leukæmi",nameEn:"Leukemia",icd10:"C91-C95",icon:"🩸",dk:"~1.400/år",fy:"CML >90%, CLL 85%, AML 30%",organ:"Blod/Knoglemarv",
    desc:"Leukæmi er kræft i blodet og knoglemarven. Der er fire hovedtyper: akut (AML og ALL) og kronisk (CML og CLL). Træthed, blødningstendens og hyppige infektioner er typiske symptomer.",
    sub:["AML — Akut myeloid leukæmi, kræver omgående behandling","ALL — Akut lymfatisk leukæmi, hyppigst hos børn, god prognose","CML — Kronisk myeloid leukæmi (BCR-ABL), næsten kurabel med tabletter","CLL — Kronisk lymfatisk leukæmi, langsom, mange lever normalt i mange år"],
    tx:"AML: Intensiv kemoterapi (7+3 protokol) fulgt af knoglemarvstransplantation ved høj-risiko. CML: TKI-tabletter dagligt — imatinib (Glivec), nilotinib eller dasatinib. CLL: Ibrutinib (BTK-hæmmer) eller venetoclax plus obinutuzumab.",
@@ -673,21 +814,21 @@ const CANCER_DATA = [
    meds:[MED.metformin,MED.hydroxychloroquin,MED.itraconazol,MED.ivermectin,MED.mebendazol,MED.fenbendazol,MED.propranolol,MED.losartan,MED.disulfiram,MED.doxycyclin,MED.niclosamid,MED.dca,MED.artesunate,MED.celecoxib],
    sups:[SUP.curcumin,SUP.artemisinin,SUP.quercetin,SUP.vitamind,SUP.melatonin,SUP.sulforafan,SUP.omega3,SUP.boswellia,SUP.berberine,SUP.egcg,SUP.cbd,SUP.vitaminE,SUP.ala]},
 
-  {id:"thyroid",dk_key:null,name:"Skjoldbruskkirtalkræft",nameEn:"Thyroid Cancer",icd10:"C73",icon:"🦋",dk:"~800/år",fy:"PTC/FTC >95%, ATC <10%",organ:"Skjoldbruskkirtel",
+  {id:"thyroid",dk_key:"thyroid",name:"Skjoldbruskkirtalkræft",nameEn:"Thyroid Cancer",icd10:"C73",icon:"🦋",dk:"~800/år",fy:"PTC/FTC >95%, ATC <10%",organ:"Skjoldbruskkirtel",
    desc:"Kræft i skjoldbruskkirtlen opdages ofte tilfældigt ved ultralyd. Papillær og follikulær type er behandlingsresponsive med fremragende prognose. Anaplastisk er ekstremt aggressiv.",
    sub:["Papillær (PTC, ca. 85%) — langsom vækst, fremragende prognose","Follikulær (FTC, ca. 10%) — god prognose","Medullær (MTC, ca. 3%) — RET-mutation, familietest anbefales","Anaplastisk (ATC, ca. 2%) — ekstremt aggressiv"],
    tx:"Thyroidektomi efterfulgt af radioaktivt jod (RAI). Livslang levothyroxin herefter. RAI-refraktær DTC: lenvatinib eller sorafenib. Anaplastisk med BRAF V600E: dabrafenib plus trametinib plus pembrolizumab.",
    meds:[MED.metformin,MED.aspirin,MED.hydroxychloroquin,MED.ldn,MED.ivermectin,MED.mebendazol,MED.fenbendazol,MED.artesunate,MED.propranolol,MED.disulfiram,MED.doxycyclin,MED.niclosamid,MED.itraconazol],
    sups:[SUP.selen,SUP.vitamind,SUP.curcumin,SUP.quercetin,SUP.melatonin,SUP.artemisinin,SUP.egcg,SUP.berberine,SUP.boswellia,SUP.omega3]},
 
-  {id:"kidney",dk_key:null,name:"Nyrekræft",nameEn:"Renal Cell Carcinoma",icd10:"C64",icon:"🫘",dk:"~1.000/år",fy:"Lokaliseret 93%, Metastatisk 12%",organ:"Nyre",
+  {id:"kidney",dk_key:"kidney",name:"Nyrekræft",nameEn:"Renal Cell Carcinoma",icd10:"C64",icon:"🫘",dk:"~1.000/år",fy:"Lokaliseret 93%, Metastatisk 12%",organ:"Nyre",
    desc:"Nyrekræft opstår oftest i den ene nyre og opdages i mange tilfælde tilfældigt ved scanning. Metastatisk nyrekræft behandles med en ny generation af immunterapi og målrettede medikamenter.",
    sub:["Klarcelle karcinom (ca. 80%) — hyppigst, reagerer godt på immunterapi","Papillær RCC (ca. 15%) — to undertyper med lidt forskellig biologi","Kromofobt RCC (ca. 5%) — langsom vækst, generelt god prognose","Metastatisk RCC — behandles som kronisk sygdom"],
    tx:"Lokaliseret: Radikal nefrektomi eller nyre-bevarende partiel nefrektomi. Metastatisk: Dual immunterapi (nivolumab plus ipilimumab) eller pembrolizumab plus axitinib er nu standard. TKI: sunitinib, pazopanib, kabozantinib.",
    meds:[MED.metformin,MED.statiner,MED.ivermectin,MED.mebendazol,MED.fenbendazol,MED.hydroxychloroquin,MED.propranolol,MED.aspirin,MED.disulfiram,MED.doxycyclin,MED.itraconazol,MED.niclosamid,MED.artesunate],
    sups:[SUP.curcumin,SUP.vitamind,SUP.artemisinin,SUP.egcg,SUP.berberine,SUP.melatonin,SUP.quercetin,SUP.omega3,SUP.sulforafan,SUP.boswellia,SUP.ala]},
 
-  {id:"uterine",dk_key:null,name:"Livmoderkræft",nameEn:"Endometrial Cancer",icd10:"C54",icon:"🔶",dk:"~1.200/år",fy:"~82%",organ:"Livmoder",
+  {id:"uterine",dk_key:"uterine",name:"Livmoderkræft",nameEn:"Endometrial Cancer",icd10:"C54",icon:"🔶",dk:"~1.200/år",fy:"~82%",organ:"Livmoder",
    desc:"Livmoderkræft opstår i livmoderslimhinden og er den hyppigste kræft i de kvindelige kønsorganer. Den opdages typisk tidligt. Metformin har særlig stærk evidens her.",
    sub:["Type 1 — Endometrioidt karcinom (ca. 80%), hormonfølsomt, god prognose","Type 2 — Serøst eller klarcelle karcinom, aggressivt","MMR-deficient / MSI-høj (ca. 25–30%) — god kandidat til immunterapi","HER2+ serøst (ca. 20%) — reagerer på trastuzumab"],
    tx:"Hysterektomi er standardbehandling og helbredende for de fleste. Adjuvant strålebehandling ved høj-risiko. Kemoterapi ved avanceret sygdom. Immunterapi: pembrolizumab ved MSI-H/MMR-deficient type.",
@@ -708,14 +849,14 @@ const CANCER_DATA = [
    meds:[MED.metformin,MED.disulfiram,MED.mebendazol,MED.fenbendazol,MED.ivermectin,MED.hydroxychloroquin,MED.itraconazol,MED.dca,MED.artesunate,MED.losartan,MED.celecoxib,MED.doxycyclin],
    sups:[SUP.boswellia,SUP.curcumin,SUP.vitamind,SUP.artemisinin,SUP.melatonin,SUP.berberine,SUP.omega3,SUP.egcg,SUP.quercetin,SUP.ala,SUP.cbd]},
 
-  {id:"liver",dk_key:null,name:"Leverkræft",nameEn:"Liver Cancer (HCC)",icd10:"C22",icon:"🟤",dk:"~500/år",fy:"Tidlig ~40%, Fremskreden <5%",organ:"Lever",
+  {id:"liver",dk_key:"liver",name:"Leverkræft",nameEn:"Liver Cancer (HCC)",icd10:"C22",icon:"🟤",dk:"~500/år",fy:"Tidlig ~40%, Fremskreden <5%",organ:"Lever",
    desc:"Primær leverkræft (HCC) opstår oftest hos mennesker med kronisk leversygdom — skrumpelever pga. hepatitis B/C, alkohol eller fedtlever.",
    sub:["Hepatocellulært karcinom (HCC, ca. 80%) — klassisk leverkræft ved skrumpelever","Kolangiokarcinom (galdeveje, ca. 15%) — aggressiv","Levermetastaser — spredt fra tarm-, bryst- og lungekræft","Fibrolamellær HCC — sjælden, yngre patienter, bedre prognose"],
    tx:"Kurativt potentiale kun ved lokaliseret sygdom: Kirurgisk resektion eller levertransplantation. TACE (transarteriel kemoembolisering). Systemisk: atezolizumab plus bevacizumab er nu standard.",
    meds:[MED.metformin,MED.statiner,MED.aspirin,MED.ivermectin,MED.mebendazol,MED.fenbendazol,MED.disulfiram,MED.doxycyclin,MED.hydroxychloroquin,MED.propranolol,MED.niclosamid,MED.artesunate,MED.itraconazol,MED.cimetidin],
    sups:[SUP.curcumin,SUP.vitamind,SUP.artemisinin,SUP.egcg,SUP.berberine,SUP.melatonin,SUP.omega3,SUP.quercetin,SUP.sulforafan,SUP.mcp,SUP.ala,SUP.silymarin]},
 
-  {id:"gastric",dk_key:null,name:"Mavekræft",nameEn:"Gastric Cancer",icd10:"C16",icon:"🫙",dk:"~500/år",fy:"Tidlig ~70%, Avanceret <5%",organ:"Mave",
+  {id:"gastric",dk_key:"gastric",name:"Mavekræft",nameEn:"Gastric Cancer",icd10:"C16",icon:"🫙",dk:"~500/år",fy:"Tidlig ~70%, Avanceret <5%",organ:"Mave",
    desc:"Mavekræft opdages ofte sent da symptomerne let forveksles med harmløse maveproblemer. Helicobacter pylori-infektion er den vigtigste risikofaktor.",
    sub:["Intestinal type — ligner tarmkræft, bedre prognose, H. pylori-relateret","Diffus type (signetringsceller) — aggressiv, spreder sig tidligt","HER2-positiv (ca. 15–20%) — reagerer godt på trastuzumab","Gastrisk GIST — gastrointestinal stromaltumor, imatinib-følsom"],
    tx:"Kurativt: Gastrektomi med lymfeknudefjernelse. Perioperativ kemoterapi (FLOT-protokol) er dansk standard. HER2+: trastuzumab tilføjes. Fremskreden sygdom: nivolumab plus kemoterapi.",
