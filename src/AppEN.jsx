@@ -96,7 +96,6 @@ function AbbrTooltip({ term, definition }) {
   return (
     <span style={{ position: "relative", display: "inline" }}>
       <span
-        onMouseEnter={() => { if (!isTouch.current) setOpen(true); }}
         onTouchStart={() => { isTouch.current = true; }}
         onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
         style={{ borderBottom: "1.5px dotted #5b8db8", color: "#5b8db8", cursor: "pointer", fontWeight: 700 }}
