@@ -1598,10 +1598,31 @@ export default function Onkolex({ onLangChange }) {
   const go   = c => { sA(c); sV("cancer"); };
   const home = ()  => { sV("home"); sA(null); };
   const books = () => sV("books");
-  const filt = CANCER_DATA.filter(c => {
-    const s = q.toLowerCase();
-    return !s || c.name.toLowerCase().includes(s) || c.nameEn.toLowerCase().includes(s) || c.organ.toLowerCase().includes(s) || c.icd10.includes(s);
-  });
+  const s = q.toLowerCase().trim();
+  const filtCancers = CANCER_DATA.filter(c =>
+    !s || c.name.toLowerCase().includes(s) || c.nameEn.toLowerCase().includes(s) || c.organ.toLowerCase().includes(s) || c.icd10.includes(s)
+  );
+  const filtMeds = !s ? [] : (() => {
+    const seen = new Set(); const res = [];
+    CANCER_DATA.forEach(cancer => { cancer.meds.forEach(m => {
+      if (!seen.has(m.name) && m.name.toLowerCase().includes(s)) {
+        seen.add(m.name);
+        res.push({...m, inCancers: CANCER_DATA.filter(cc => cc.meds.some(mm => mm.name === m.name))});
+      }
+    }); });
+    return res;
+  })();
+  const filtSups = !s ? [] : (() => {
+    const seen = new Set(); const res = [];
+    CANCER_DATA.forEach(cancer => { cancer.sups.forEach(sup => {
+      if (!seen.has(sup.name) && sup.name.toLowerCase().includes(s)) {
+        seen.add(sup.name);
+        res.push({...sup, inCancers: CANCER_DATA.filter(cc => cc.sups.some(ss => ss.name === sup.name))});
+      }
+    }); });
+    return res;
+  })();
+  const filt = filtCancers;
 
   return (
     <div style={{minHeight:"100vh",background:"#f5f3f8",fontFamily:"'DM Sans',system-ui,sans-serif",overflowX:"hidden"}}>
@@ -1652,7 +1673,7 @@ export default function Onkolex({ onLangChange }) {
             <div className="hdr-search" style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,padding:"6px 12px"}}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               <input value={q} onChange={e => { sQ(e.target.value); if(view!=="home") home(); }}
-                placeholder="Søg kræfttype…"
+                placeholder="Søg kræfttype, medicin, kosttilskud…"
                  />
             </div>
           </div>
@@ -1665,7 +1686,7 @@ export default function Onkolex({ onLangChange }) {
       </header>
       <div className="mobile-search">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8c87a8" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input value={q} onChange={e => { sQ(e.target.value); if(view!=="home") home(); }} placeholder="Søg kræfttype…" />
+        <input value={q} onChange={e => { sQ(e.target.value); if(view!=="home") home(); }} placeholder="Søg kræfttype, medicin, kosttilskud…" />
         {q && <button onClick={() => sQ("")} style={{background:"none",border:"none",cursor:"pointer",color:"#8c87a8",fontSize:16,padding:0,fontFamily:"inherit"}}>✕</button>}
       </div>
       <div className="disclaimer-bar" style={{background:"#fdf4ed",borderBottom:"1px solid #e8c4a0",padding:"8px 24px"}}>
@@ -1708,7 +1729,96 @@ export default function Onkolex({ onLangChange }) {
               {BOOKS.map(b => <BookCard key={b.id} b={b} />)}
             </div>
           )}
-          {view==="home" && (
+          {s && (
+            <div style={{animation:"fadeIn 0.3s ease",marginBottom:24}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+                <button onClick={() => sQ("")} style={{background:"none",border:"none",cursor:"pointer",color:"#8c87a8",fontSize:12.5,fontFamily:"inherit",padding:"5px 0"}}>
+                  ← Ryd søgning
+                </button>
+                <span style={{color:"#e4dff2"}}>|</span>
+                <span style={{fontSize:13,color:"#5a5370"}}>
+                  <strong style={{color:"#2a2640"}}>Søgeresultater for "{q}"</strong>
+                </span>
+              </div>
+              {filtCancers.length > 0 && filtCancers.length < CANCER_DATA.length && (
+                <div style={{marginBottom:20}}>
+                  <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:2,color:"#4a8c84",marginBottom:10}}>Kræfttyper</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10}}>
+                    {filtCancers.map(cc => (
+                      <button key={cc.id} onClick={() => { go(cc); sQ(""); }}
+                        style={{display:"flex",alignItems:"center",gap:10,padding:"12px 15px",background:"#ffffff",border:"1.5px solid #e4dff2",borderRadius:12,cursor:"pointer",textAlign:"left",fontFamily:"inherit"}}
+                        onMouseEnter={e => e.currentTarget.style.borderColor="#6b5fa8"}
+                        onMouseLeave={e => e.currentTarget.style.borderColor="#e4dff2"}>
+                        <span style={{fontSize:24}}>{cc.icon}</span>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:600,color:"#2a2640"}}>{cc.name}</div>
+                          <div style={{fontSize:10.5,color:"#8c87a8"}}>{cc.icd10} · {cc.organ}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {filtMeds.length > 0 && (
+                <div style={{marginBottom:20}}>
+                  <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:2,color:"#c4875a",marginBottom:10}}>Off-label præparater</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {filtMeds.map((m,i) => (
+                      <div key={i} style={{background:"#ffffff",border:"1.5px solid #e4dff2",borderRadius:12,padding:"14px 18px"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                          <span style={{fontSize:15}}>💊</span>
+                          <span style={{fontSize:14,fontWeight:700,color:"#2a2640"}}>{m.name}</span>
+                          <span style={{fontSize:9,fontWeight:700,color:"#c4875a",background:"#fdf4ed",borderRadius:4,padding:"2px 7px",border:"1px solid #e8c4a0"}}>off-label</span>
+                        </div>
+                        <div style={{fontSize:12.5,color:"#5a5370",lineHeight:1.7,marginBottom:8}}>{m.mechanism}</div>
+                        <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
+                          <span style={{fontSize:10,color:"#8c87a8",fontWeight:600}}>Bruges ved:</span>
+                          {m.inCancers.map(cc => (
+                            <button key={cc.id} onClick={() => { go(cc); sQ(""); }}
+                              style={{fontSize:10.5,padding:"3px 9px",borderRadius:999,background:"#f0edf8",color:"#6b5fa8",border:"1px solid #c4b8ea",cursor:"pointer",fontFamily:"inherit"}}>
+                              {cc.icon} {cc.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {filtSups.length > 0 && (
+                <div style={{marginBottom:20}}>
+                  <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:2,color:"#4a8c84",marginBottom:10}}>Kosttilskud</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {filtSups.map((sup,i) => (
+                      <div key={i} style={{background:"#ffffff",border:"1.5px solid #e4dff2",borderRadius:12,padding:"14px 18px"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                          <span style={{fontSize:15}}>🌿</span>
+                          <span style={{fontSize:14,fontWeight:700,color:"#2a2640"}}>{sup.name}</span>
+                          <span style={{fontSize:9,fontWeight:700,color:"#4a8c84",background:"#eaf5f3",borderRadius:4,padding:"2px 7px",border:"1px solid #a0cfc9"}}>kosttilskud</span>
+                        </div>
+                        <div style={{fontSize:12.5,color:"#5a5370",lineHeight:1.7,marginBottom:8}}>{sup.mechanism}</div>
+                        <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
+                          <span style={{fontSize:10,color:"#8c87a8",fontWeight:600}}>Bruges ved:</span>
+                          {sup.inCancers.map(cc => (
+                            <button key={cc.id} onClick={() => { go(cc); sQ(""); }}
+                              style={{fontSize:10.5,padding:"3px 9px",borderRadius:999,background:"#f0edf8",color:"#6b5fa8",border:"1px solid #c4b8ea",cursor:"pointer",fontFamily:"inherit"}}>
+                              {cc.icon} {cc.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {filtMeds.length === 0 && filtSups.length === 0 && filtCancers.length === 0 && (
+                <div style={{textAlign:"center",padding:"40px 20px",color:"#8c87a8",fontSize:14}}>
+                  Ingen resultater for "{q}"
+                </div>
+              )}
+            </div>
+          )}
+                    {view==="home" && (
             <div style={{animation:"fadeIn 0.35s ease"}}>
               <div className="hero-box" style={{background:"#2e2a4a",borderRadius:18,padding:"36px 40px",marginBottom:22,position:"relative",overflow:"hidden",boxShadow:"0 8px 40px rgba(46,42,74,0.18)"}}>
                 <div style={{position:"absolute",top:-60,right:-60,width:280,height:280,borderRadius:"50%",background:"radial-gradient(circle,rgba(107,95,168,0.18),transparent 70%)"}} />
