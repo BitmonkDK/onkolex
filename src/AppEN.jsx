@@ -96,6 +96,8 @@ function AbbrTooltip({ term, definition }) {
   return (
     <span style={{ position: "relative", display: "inline" }}>
       <span
+        onMouseEnter={() => { if (!isTouch.current) setOpen(true); }}
+        onMouseLeave={() => { if (!isTouch.current) setOpen(false); }}
         onTouchStart={() => { isTouch.current = true; }}
         onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
         style={{ borderBottom: "1.5px dotted #5b8db8", color: "#5b8db8", cursor: "pointer", fontWeight: 700 }}
@@ -1447,13 +1449,31 @@ export default function Onkolex({ onLangChange }) {
   });
 
   return (
-    <div style={{minHeight:"100vh",background:"#f5f3f8",fontFamily:"'DM Sans',system-ui,sans-serif"}}>
+    <div style={{minHeight:"100vh",background:"#f5f3f8",fontFamily:"'DM Sans',system-ui,sans-serif",overflowX:"hidden"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-thumb { background: #e4dff2; border-radius: 4px; }
+        .hdr-stats { display:flex; gap:14px; }
+        .hdr-search { display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:6px 12px; }
+        .hdr-search input { background:none; border:none; outline:none; color:white; font-size:12.5px; width:150px; font-family:inherit; }
+        .mobile-search { display:none; }
+        @media (max-width:640px) {
+          .hdr-stats { display:none !important; }
+          .hdr-search { display:none !important; }
+          .mobile-search { display:flex; align-items:center; gap:8px; background:white; border-bottom:1px solid #e4dff2; padding:9px 16px; }
+          .mobile-search input { flex:1; border:none; outline:none; font-size:14px; font-family:inherit; color:#2a2640; background:transparent; }
+          .hero-box { padding: 22px 18px !important; }
+          .hero-title { font-size: 24px !important; line-height: 1.2 !important; }
+          .hero-desc { font-size: 13px !important; max-width: 100% !important; }
+          .hero-stats { gap: 16px !important; flex-wrap: wrap !important; }
+          .hero-stat-n { font-size: 22px !important; }
+          .hero-stat-l { font-size: 8px !important; }
+          .main-pad { padding: 14px 12px !important; }
+          .disclaimer-bar { padding: 8px 14px !important; font-size: 11px !important; }
+        }
       `}</style>
 
       <header style={{background:"#2e2a4a",borderBottom:"2px solid #5b4f8a",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 20px rgba(46,42,74,0.2)"}}>
@@ -1474,29 +1494,33 @@ export default function Onkolex({ onLangChange }) {
               style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,padding:"7px 14px",color:"rgba(255,255,255,0.6)",fontSize:12.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
               🇩🇰 Dansk
             </button>
-            <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,padding:"6px 12px"}}>
+            <div className="hdr-search" style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,padding:"6px 12px"}}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               <input value={q} onChange={e => { sQ(e.target.value); if(view!=="home") home(); }}
                 placeholder="Search cancer type…"
-                style={{background:"none",border:"none",outline:"none",color:"white",fontSize:12.5,width:150,fontFamily:"inherit"}} />
+                 />
             </div>
           </div>
-          <div style={{fontSize:11,color:"rgba(255,255,255,0.3)",display:"flex",gap:14}}>
+          <div className="hdr-stats" style={{fontSize:11,color:"rgba(255,255,255,0.3)",display:"flex",gap:14}}>
             <span><span style={{color:"#4a8c84",fontWeight:700}}>{CANCER_DATA.length}</span> types</span>
             <span><span style={{color:"#c4875a",fontWeight:700}}>{tM}</span> off-label</span>
             <span><span style={{color:"#6b5fa8",fontWeight:700}}>{tS}</span> supplements</span>
           </div>
         </div>
       </header>
-
-      <div style={{background:"#fdf4ed",borderBottom:"1px solid #e8c4a0",padding:"8px 24px"}}>
+      <div className="mobile-search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8c87a8" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input value={q} onChange={e => { sQ(e.target.value); if(view!=="home") home(); }} placeholder="Search cancer type…" />
+        {q && <button onClick={() => sQ("")} style={{background:"none",border:"none",cursor:"pointer",color:"#8c87a8",fontSize:16,padding:0,fontFamily:"inherit"}}>✕</button>}
+      </div>
+      <div className="disclaimer-bar" style={{background:"#fdf4ed",borderBottom:"1px solid #e8c4a0",padding:"8px 24px"}}>
         <div style={{maxWidth:1380,margin:"0 auto",fontSize:11.5,color:"#7a5a3a",display:"flex",alignItems:"center",gap:8}}>
           <span>💛</span>
           <span><strong>Medical disclaimer:</strong> Onkolex is for information and guidance only. Content does not replace medical advice. Off-label use requires a prescription and oncologist consultation.</span>
         </div>
       </div>
 
-      <div style={{maxWidth:1380,margin:"0 auto",padding:"22px 24px",display:"grid",gridTemplateColumns:view==="cancer"?"260px 1fr":"1fr",gap:20}}>
+      <div className="main-pad" style={{maxWidth:1380,margin:"0 auto",padding:"22px 24px",display:"grid",gridTemplateColumns:view==="cancer"?"260px 1fr":"1fr",gap:20}}>
         {view==="cancer" && (
           <nav style={{display:"flex",flexDirection:"column",gap:4}}>
             <div style={{fontSize:9.5,fontWeight:700,textTransform:"uppercase",letterSpacing:2,color:"#8c87a8",padding:"4px 8px",marginBottom:6}}>Kræfttyper</div>
@@ -1531,27 +1555,27 @@ export default function Onkolex({ onLangChange }) {
           )}
           {view==="home" && (
             <div style={{animation:"fadeIn 0.35s ease"}}>
-              <div style={{background:"#2e2a4a",borderRadius:18,padding:"36px 40px",marginBottom:22,position:"relative",overflow:"hidden",boxShadow:"0 8px 40px rgba(46,42,74,0.18)"}}>
+              <div className="hero-box" style={{background:"#2e2a4a",borderRadius:18,padding:"36px 40px",marginBottom:22,position:"relative",overflow:"hidden",boxShadow:"0 8px 40px rgba(46,42,74,0.18)"}}>
                 <div style={{position:"absolute",top:-60,right:-60,width:280,height:280,borderRadius:"50%",background:"radial-gradient(circle,rgba(107,95,168,0.18),transparent 70%)"}} />
                 <div style={{position:"absolute",bottom:-40,left:-40,width:200,height:200,borderRadius:"50%",background:"radial-gradient(circle,rgba(91,141,184,0.12),transparent 70%)"}} />
                 <div style={{position:"relative"}}>
                   <div style={{fontSize:11,color:"#6b5fa8",fontWeight:600,letterSpacing:3,textTransform:"uppercase",marginBottom:12,opacity:0.9}}>Dansk klinisk kræftopslagsværk</div>
-                  <h1 style={{fontSize:33,fontWeight:700,color:"white",letterSpacing:-1,lineHeight:1.15,marginBottom:12}}>
+                  <h1 className="hero-title" style={{fontSize:33,fontWeight:700,color:"white",letterSpacing:-1,lineHeight:1.15,marginBottom:12}}>
                     You are not alone.<br/>
                     <span style={{color:"#6b5fa8",opacity:0.9}}>Here you find knowledge</span> that empowers you.
                   </h1>
-                  <p style={{color:"rgba(255,255,255,0.5)",fontSize:14,lineHeight:1.8,maxWidth:500,marginBottom:22}}>
+                  <p className="hero-desc" style={{color:"rgba(255,255,255,0.5)",fontSize:14,lineHeight:1.8,maxWidth:500,marginBottom:22}}>
                     Onkolex brings together evidence-based information on cancer types, conventional treatment, repurposed drugs and supplements. Everything for those who want to know more and improve their odds.
                   </p>
                   <button onClick={books}
                     style={{display:"inline-flex",alignItems:"center",gap:7,background:"rgba(107,95,168,0.15)",border:"1.5px solid #6b5fa8",borderRadius:10,color:"#6b5fa8",padding:"10px 18px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:0.9}}>
                     📚 See McLelland, Clark and Tippens protocols →
                   </button>
-                  <div style={{display:"flex",gap:28,marginTop:26,paddingTop:20,borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+                  <div className="hero-stats" style={{display:"flex",gap:28,marginTop:26,paddingTop:20,borderTop:"1px solid rgba(255,255,255,0.06)"}}>
                     {[[CANCER_DATA.length,"Cancer Types","#4a8c84"],[tM,"Off-label præparater","#c4875a"],[tS,"Supplements","#6b5fa8"],[BOOKS.length,"Protokol-bøger","#5b8db8"]].map(([n,l,c]) => (
                       <div key={l}>
-                        <div style={{fontSize:27,fontWeight:700,color:c,lineHeight:1,opacity:0.9}}>{n}</div>
-                        <div style={{fontSize:9.5,color:"rgba(255,255,255,0.3)",marginTop:4,textTransform:"uppercase",letterSpacing:1.5}}>{l}</div>
+                        <div className="hero-stat-n" style={{fontSize:27,fontWeight:700,color:c,lineHeight:1,opacity:0.9}}>{n}</div>
+                        <div className="hero-stat-l" style={{fontSize:9.5,color:"rgba(255,255,255,0.3)",marginTop:4,textTransform:"uppercase",letterSpacing:1.5}}>{l}</div>
                       </div>
                     ))}
                   </div>
