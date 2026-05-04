@@ -1493,6 +1493,12 @@ export default function Onkolex({ onLangChange }) {
           .hero-stat-n { font-size: 22px !important; }
           .hero-stat-l { font-size: 8px !important; }
           .main-pad { padding: 14px 12px !important; }
+          .cancer-nav { display: flex; }
+          .cancer-grid-cancer { grid-template-columns: 260px 1fr !important; }
+          @media (max-width: 768px) {
+            .cancer-nav { display: none !important; }
+            .cancer-grid-cancer { grid-template-columns: 1fr !important; }
+          }
           .disclaimer-bar { padding: 8px 14px !important; font-size: 11px !important; }
         }
       `}</style>
@@ -1541,9 +1547,9 @@ export default function Onkolex({ onLangChange }) {
         </div>
       </div>
 
-      <div className="main-pad" style={{maxWidth:1380,margin:"0 auto",padding:"22px 24px",display:"grid",gridTemplateColumns:view==="cancer"?"260px 1fr":"1fr",gap:20}}>
+      <div className={"main-pad" + (view==="cancer" ? " cancer-grid-cancer" : "")} style={{maxWidth:1380,margin:"0 auto",padding:"22px 24px",display:"grid",gridTemplateColumns:view==="cancer"?"260px 1fr":"1fr",gap:20}}>
         {view==="cancer" && (
-          <nav style={{display:"flex",flexDirection:"column",gap:4}}>
+          <nav className="cancer-nav" style={{display:"flex",flexDirection:"column",gap:4}}>
             <div style={{fontSize:9.5,fontWeight:700,textTransform:"uppercase",letterSpacing:2,color:"#8c87a8",padding:"4px 8px",marginBottom:6}}>Kræfttyper</div>
             {CANCER_DATA.map(c => (
               <button key={c.id} onClick={() => go(c)}
