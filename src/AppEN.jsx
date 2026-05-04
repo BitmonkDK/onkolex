@@ -1691,14 +1691,16 @@ export default function Onkolex({ onLangChange }) {
                   </div>
                 </div>
               </div>
-              <div style={{display:"flex",gap:7,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
-                <span style={{fontSize:11,color:"#8c87a8",marginRight:4}}>Evidensniveau:</span>
+              <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+                <span style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:1.5,color:"#8c87a8"}}>Evidence level</span>
+                <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
                 {Object.entries(EV).map(([k,v]) => (
                   <div key={k} style={{display:"flex",alignItems:"center",gap:5,background:"#ffffff",border:"1px solid #e4dff2",borderRadius:7,padding:"5px 10px"}}>
                     <div style={{width:7,height:7,borderRadius:"50%",background:v.c}} />
                     <span style={{fontSize:11,color:"#5a5370"}}><strong style={{color:"#2a2640"}}>{v.l}</strong> — {v.d}</span>
                   </div>
                 ))}
+                </div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
                 {filt.map((c,i) => (
