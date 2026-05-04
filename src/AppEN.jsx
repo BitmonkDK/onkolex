@@ -1444,6 +1444,8 @@ export default function Onkolex({ onLangChange }) {
   const home = ()  => { sV("home"); sA(null); };
   const books = () => { sV("books"); window.history.pushState({view:"books"}, ""); };
   useEffect(() => {
+    // Sæt en navngiven starttilstand så mobilens tilbage-knap ikke forlader siden
+    window.history.replaceState({view:"home"}, "");
     const onPop = () => {
       const st = window.history.state;
       if (!st || st.view === "home") { sV("home"); sA(null); }
