@@ -1595,9 +1595,22 @@ export default function Onkolex({ onLangChange }) {
   const [view, sV] = useState("home");
   const [ac, sA]   = useState(null);
   const [q, sQ]    = useState("");
-  const go   = c => { sA(c); sV("cancer"); };
+  const go   = c => { sA(c); sV("cancer"); window.history.pushState({view:"cancer",id:c.id}, ""); };
   const home = ()  => { sV("home"); sA(null); };
-  const books = () => sV("books");
+  const books = () => { sV("books"); window.history.pushState({view:"books"}, ""); };
+  useEffect(() => {
+    const onPop = () => {
+      const st = window.history.state;
+      if (!st || st.view === "home") { sV("home"); sA(null); }
+      else if (st.view === "books") { sV("books"); }
+      else if (st.view === "cancer") {
+        const found = CANCER_DATA.find(c => c.id === st.id);
+        if (found) { sA(found); sV("cancer"); }
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   const s = q.toLowerCase().trim();
   const filtCancers = CANCER_DATA.filter(c =>
     !s || c.name.toLowerCase().includes(s) || c.nameEn.toLowerCase().includes(s) || c.organ.toLowerCase().includes(s) || c.icd10.includes(s)
